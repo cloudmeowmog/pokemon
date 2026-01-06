@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>寶可夢科技圖鑑 V9.0</title>
+    <title>寶可夢科技圖鑑 V9.1</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         :root {
             --pokedex-red: #dc0a2d;
             --pokedex-dark-red: #8b0000;
-            --screen-bg: #1a1a1a;
+            --screen-bg: #111; /* 背景改深，凸顯光效 */
             --ui-green: #4dad5b;
             --ui-cyan: #30a7d7;
             --text-color: #f0f0f0;
@@ -23,7 +23,7 @@
             display: flex;
             justify-content: center;
             height: 100vh;
-            height: 100dvh; /* 確保適配手機瀏覽器高度 */
+            height: 100dvh;
             overflow: hidden;
         }
 
@@ -40,7 +40,7 @@
 
         /* --- 頂部裝飾 --- */
         .top-bar {
-            padding: 10px 20px; /* 稍微縮減 padding 爭取空間 */
+            padding: 10px 20px;
             display: flex;
             align-items: center;
             border-bottom: 5px solid var(--pokedex-dark-red);
@@ -50,7 +50,7 @@
         }
 
         .camera-lens {
-            width: 50px; /* 稍微縮小鏡頭 */
+            width: 50px;
             height: 50px;
             background: radial-gradient(circle at 30% 30%, #44d4ff, #005a9e);
             border-radius: 50%;
@@ -67,32 +67,25 @@
         .led.yellow { background-color: #ffcc00; }
         .led.green { background-color: #55ff55; }
 
-        /* --- 主螢幕區域 (核心修改) --- */
+        /* --- 主螢幕區域 --- */
         .screen-container {
             background-color: #dedede;
-            margin: 15px; /* 邊距縮小，讓畫面更大 */
+            margin: 15px;
             border-radius: 10px;
             border: 2px solid #555;
-            
-            /* 🔥 關鍵佈局設定：讓內部元件自動分配高度 */
             flex-grow: 1;
             display: flex;
             flex-direction: column;
             overflow: hidden;
             position: relative;
-            
-            /* 避開 iPhone 底部橫條 */
             margin-bottom: max(15px, env(safe-area-inset-bottom));
         }
 
-        /* ========= 1. 上半部：大圖顯示區 ========= */
+        /* ========= 1. 上半部：大圖顯示區 (官方風格背景) ========= */
         .display-area {
-            background: radial-gradient(circle at center, #2a2a2a 0%, var(--screen-bg) 80%);
-            
-            /* 🔥 關鍵修改：不再用固定 %，而是用 flex: 1 吃掉所有剩餘空間 */
-            flex: 1; 
-            min-height: 0; /* 防止內容過多撐爆容器 */
-            
+            background-color: var(--screen-bg);
+            flex: 1; /* 自動填滿剩餘高度 */
+            min-height: 0;
             border-bottom: 3px solid var(--ui-cyan);
             display: flex;
             flex-direction: column;
@@ -100,9 +93,45 @@
             justify-content: flex-start;
             position: relative;
             padding: 10px;
-            overflow: hidden; /* 確保光圈不溢出 */
+            overflow: hidden; /* 關鍵：裁切掉超出的旋轉背景 */
         }
 
+        /* 🔥 動態放射背景 (Dynamic Starburst) */
+        .dynamic-bg {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 200%; /* 放大以覆蓋旋轉死角 */
+            height: 200%;
+            transform: translate(-50%, -50%);
+            z-index: 0;
+            
+            /* 模擬官方的放射線效果 */
+            background: repeating-conic-gradient(
+                from 0deg,
+                rgba(48, 167, 215, 0.05) 0deg 10deg, /* 淺藍色光束 */
+                rgba(0, 0, 0, 0) 10deg 20deg       /* 透明間隔 */
+            );
+            
+            animation: rotateBg 60s linear infinite; /* 緩慢旋轉 */
+        }
+
+        /* 🔥 中央聚光燈 (Spotlight Overlay) */
+        .spotlight-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 1;
+            /* 中央亮，四周暗，製造景深 */
+            background: radial-gradient(circle at center, rgba(48, 167, 215, 0.15) 0%, rgba(17, 17, 17, 0.8) 80%);
+            pointer-events: none;
+        }
+
+        @keyframes rotateBg {
+            from { transform: translate(-50%, -50%) rotate(0deg); }
+            to { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        /* 標題資訊 */
         .tech-info-box {
             text-align: center;
             margin-bottom: 5px;
@@ -110,6 +139,7 @@
             text-shadow: 0 0 8px rgba(0,0,0,0.8);
             flex-shrink: 0;
             width: 100%;
+            position: relative; /* 確保在背景之上 */
         }
 
         .tech-id {
@@ -129,50 +159,26 @@
             text-shadow: 0 0 10px var(--ui-cyan), 0 0 20px var(--ui-cyan);
         }
 
-        /* 圖片與光圈容器 */
+        /* 圖片容器 */
         .img-container {
             position: relative;
             width: 100%;
-            height: 100%; /* 填滿 flex 剩餘空間 */
+            height: 100%;
             flex-grow: 1;
             display: flex;
             justify-content: center;
             align-items: center;
             overflow: visible;
-        }
-
-        /* 科技藍色光圈 */
-        .tech-ring {
-            position: absolute;
-            /* 🔥 關鍵修改：依據高度來縮放，確保不超出上下邊界 */
-            height: 90%; 
-            max-width: 95%; /* 也不要超出左右 */
-            aspect-ratio: 1 / 1; /* 強制正圓 */
-            
-            border-radius: 50%;
-            border: 3px solid var(--ui-cyan);
-            box-shadow: 
-                0 0 20px var(--ui-cyan), 
-                inset 0 0 20px var(--ui-cyan);
-            background: radial-gradient(circle, rgba(48, 167, 215, 0.15) 0%, rgba(0,0,0,0) 70%);
-            z-index: 1;
-            opacity: 0.8;
-            animation: spinRing 20s linear infinite;
-        }
-
-        @keyframes spinRing {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
+            z-index: 2; /* 確保圖片在背景之上 */
         }
 
         /* 寶可夢圖片 */
         .pokemon-img {
             max-width: 85%;
-            max-height: 75%; 
+            max-height: 80%; /* 稍微放大一點，因為背景現在比較乾淨 */
             object-fit: contain;
-            filter: drop-shadow(0 0 15px rgba(48, 167, 215, 0.4));
+            filter: drop-shadow(0 0 15px rgba(48, 167, 215, 0.3));
             transition: transform 0.2s;
-            z-index: 2;
         }
 
         .pokemon-img.playing {
@@ -187,17 +193,15 @@
             position: absolute;
             top: 50%; left: 50%;
             transform: translate(-50%, -50%);
+            z-index: 10;
         }
         @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
 
         /* ========= 2. 下半部：列表區 ========= */
         .list-area {
             background-color: #111;
-            
-            /* 🔥 關鍵修改：鎖定高度，只給它顯示 2 行的空間 */
             height: 220px; 
-            flex-shrink: 0; /* 禁止被壓縮 */
-            
+            flex-shrink: 0; 
             overflow-y: auto;
             padding: 10px;
             background-image: 
@@ -224,7 +228,7 @@
             transition: all 0.2s;
             position: relative;
             overflow: hidden;
-            height: 60px; /* 固定列表項目高度，讓版面更整齊 */
+            height: 60px; 
         }
 
         .gallery-item:active {
@@ -316,6 +320,9 @@
         </div>
 
         <div class="display-area" id="displayArea">
+            <div class="dynamic-bg"></div>
+            <div class="spotlight-overlay"></div>
+
             <div class="placeholder-text" id="placeholderText">請選擇目標</div>
             
             <div class="tech-info-box" id="techInfoBox" style="display:none;">
@@ -324,7 +331,6 @@
             </div>
 
             <div class="img-container" id="imgContainer" style="visibility:hidden;">
-                <div class="tech-ring"></div>
                 <img id="mainImg" class="pokemon-img" src="">
             </div>
         </div>
@@ -337,7 +343,7 @@
 
 <script>
     // ==========================================
-    // ⚙️ 設定區
+    //⚙️ 設定區
     // ==========================================
     const CONFIG = {
         audioExt: '.opus',   
@@ -377,7 +383,6 @@
             database = lines.map((line, index) => {
                 const trimmed = line.trim();
                 
-                // 檔名邏輯：前4碼為ID，第5碼後為名稱
                 const fileName = trimmed;
                 const displayId = trimmed.substring(0, 4); 
                 const displayName = trimmed.substring(4); 
