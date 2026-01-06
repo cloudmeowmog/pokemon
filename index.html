@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>寶可夢科技圖鑑 V7.1</title>
+    <title>寶可夢科技圖鑑 V7.2</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         :root {
             --pokedex-red: #dc0a2d;
             --pokedex-dark-red: #8b0000;
-            --screen-bg: #1a1a1a; /* 更深色的背景來突顯光圈 */
+            --screen-bg: #1a1a1a;
             --ui-green: #4dad5b;
-            --ui-cyan: #30a7d7; /* 科技藍主色調 */
+            --ui-cyan: #30a7d7;
             --text-color: #f0f0f0;
         }
 
@@ -81,73 +81,73 @@
             margin-bottom: max(20px, env(safe-area-inset-bottom));
         }
 
-        /* ========= 1. 上半部：大圖顯示區 (核心修改) ========= */
+        /* ========= 1. 上半部：大圖顯示區 ========= */
         .display-area {
             background: radial-gradient(circle at center, #2a2a2a 0%, var(--screen-bg) 80%);
-            height: 50%; /* 稍微增加高度佔比 */
-            border-bottom: 3px solid var(--ui-cyan); /* 改成科技藍邊框 */
+            /* 修改：高度增加至 55%，讓下方選單下沉，給圖片更多空間 */
+            height: 55%; 
+            border-bottom: 3px solid var(--ui-cyan);
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: flex-start; /* 內容從上方開始排列 */
+            justify-content: flex-start;
             position: relative;
-            padding: 15px;
-            overflow: hidden; /* 防止光圈溢出 */
+            padding: 10px 15px; /* 稍微減少上下 padding */
+            overflow: hidden;
         }
 
-        /* 新的科技感標題區塊 */
         .tech-info-box {
             text-align: center;
-            margin-bottom: 10px;
-            z-index: 5; /* 確保文字在最上層 */
+            margin-bottom: 5px;
+            z-index: 5;
             text-shadow: 0 0 8px rgba(0,0,0,0.8);
+            flex-shrink: 0; /* 防止文字被擠壓 */
         }
 
         .tech-id {
             font-family: 'Courier New', monospace;
-            font-size: 1.4rem;
-            color: var(--ui-cyan); /* 科技藍數字 */
+            font-size: 1.5rem;
+            color: var(--ui-cyan);
             font-weight: bold;
-            letter-spacing: 2px;
-            margin-bottom: 5px;
+            letter-spacing: 3px;
+            margin-bottom: 2px;
         }
 
         .tech-name {
-            font-size: 2.2rem;
+            font-size: 1.8rem; /* 字體稍微調小一點點以防太長 */
             font-weight: bold;
             color: #fff;
             letter-spacing: 2px;
-            /* 藍色發光文字效果 */
             text-shadow: 0 0 10px var(--ui-cyan), 0 0 20px var(--ui-cyan);
         }
 
-        /* 圖片與光圈的容器 */
+        /* 圖片容器 */
         .img-container {
             position: relative;
             width: 100%;
-            flex-grow: 1; /* 填滿剩餘空間 */
+            flex-grow: 1;
             display: flex;
             justify-content: center;
             align-items: center;
+            /* 確保容器本身不會溢出 */
+            overflow: visible; 
         }
 
-        /* 科技藍色光圈 (背景) */
+        /* 科技藍色光圈 */
         .tech-ring {
             position: absolute;
-            width: 85%; /* 相對於容器的寬度 */
-            max-width: 280px; /* 限制最大尺寸 */
-            /* 🔥關鍵：強制保持 1:1 正圓形，手機上不會變形 */
-            aspect-ratio: 1 / 1;
+            /* 修改：調整光圈大小比例 */
+            width: 75%; 
+            max-width: 260px;
+            aspect-ratio: 1 / 1; /* 保持正圓 */
             border-radius: 50%;
-            /* 藍色霓虹效果 */
             border: 3px solid var(--ui-cyan);
             box-shadow: 
                 0 0 20px var(--ui-cyan), 
                 inset 0 0 20px var(--ui-cyan);
             background: radial-gradient(circle, rgba(48, 167, 215, 0.15) 0%, rgba(0,0,0,0) 70%);
-            z-index: 1; /* 在圖片後面 */
+            z-index: 1;
             opacity: 0.8;
-            /* 緩慢旋轉動畫 */
             animation: spinRing 20s linear infinite;
         }
 
@@ -158,15 +158,15 @@
 
         /* 寶可夢圖片 */
         .pokemon-img {
-            max-width: 90%;
-            max-height: 90%; /* 調整大小以適應光圈 */
+            /* 修改：縮小圖片尺寸，避免太滿 */
+            max-width: 85%;
+            max-height: 65%; 
             object-fit: contain;
-            filter: drop-shadow(0 0 15px rgba(48, 167, 215, 0.4)); /* 藍色陰影 */
+            filter: drop-shadow(0 0 15px rgba(48, 167, 215, 0.4));
             transition: transform 0.2s;
-            z-index: 2; /* 在光圈前面 */
+            z-index: 2;
         }
 
-        /* 點擊播放時的動畫 */
         .pokemon-img.playing {
             transform: scale(1.05);
             filter: drop-shadow(0 0 25px var(--ui-cyan));
@@ -188,7 +188,6 @@
             flex-grow: 1;
             overflow-y: auto;
             padding: 10px;
-            /* 加入一點科技感的網格背景 */
             background-image: 
                 linear-gradient(rgba(48, 167, 215, 0.05) 1px, transparent 1px),
                 linear-gradient(90deg, rgba(48, 167, 215, 0.05) 1px, transparent 1px);
@@ -219,14 +218,12 @@
             transform: scale(0.98);
         }
 
-        /* 被選中的項目樣式 */
         .gallery-item.selected {
             border-color: var(--ui-cyan);
             background: rgba(48, 167, 215, 0.15);
             box-shadow: 0 0 10px rgba(48, 167, 215, 0.3);
         }
         
-        /* 選中時的小光條裝飾 */
         .gallery-item.selected::before {
             content: '';
             position: absolute;
@@ -245,6 +242,7 @@
             padding: 2px;
             margin-right: 10px;
             border: 2px solid #555;
+            flex-shrink: 0;
         }
         .gallery-item.selected .gallery-thumb {
             border-color: var(--ui-cyan);
@@ -257,7 +255,7 @@
         }
 
         .gallery-name { font-size: 0.95rem; color: #fff; font-weight: bold; }
-        .gallery-id { font-size: 0.75rem; color: var(--ui-cyan); }
+        .gallery-id { font-size: 0.75rem; color: var(--ui-cyan); font-family: 'Courier New', monospace; }
 
         /* Loading */
         #loadingOverlay {
@@ -311,13 +309,13 @@
             </div>
 
             <div class="img-container" id="imgContainer" style="visibility:hidden;">
-                <div class="tech-ring"></div> <img id="mainImg" class="pokemon-img" src="">
+                <div class="tech-ring"></div>
+                <img id="mainImg" class="pokemon-img" src="">
             </div>
         </div>
 
         <div class="list-area">
-            <div class="gallery-grid" id="galleryGrid">
-                </div>
+            <div class="gallery-grid" id="galleryGrid"></div>
         </div>
     </div>
 </div>
@@ -327,8 +325,8 @@
     // ⚙️ 設定區
     // ==========================================
     const CONFIG = {
-        audioExt: '.opus',   // 聲音檔格式
-        imgExt: '.png'       // 圖片檔格式
+        audioExt: '.opus',   
+        imgExt: '.png'       
     };
 
     // ==========================================
@@ -338,14 +336,12 @@
     let database = []; 
     let isStarted = false;
 
-    // DOM Elements (更新對應的新 ID)
     const ui = {
         overlay: document.getElementById('loadingOverlay'),
         loadText: document.getElementById('loadingText'),
         startBtn: document.getElementById('startBtn'),
         placeholder: document.getElementById('placeholderText'),
         
-        // 新的顯示元素
         techInfoBox: document.getElementById('techInfoBox'),
         mainIdText: document.getElementById('mainIdText'),
         mainNameText: document.getElementById('mainNameText'),
@@ -355,21 +351,25 @@
         galleryGrid: document.getElementById('galleryGrid')
     };
 
-    // --- 1. 初始化: 讀取清單 ---
+    // --- 1. 初始化: 讀取清單並解析 ID ---
     document.addEventListener('DOMContentLoaded', async () => {
         try {
-            // 讀取 list.txt
             const res = await fetch('list.txt?t=' + Date.now());
             if(!res.ok) throw new Error("缺少 list.txt");
             const txt = await res.text();
             
-            // 建立資料庫
             const lines = txt.split(/\r?\n/).filter(line => line.trim());
-            database = lines.map((name, index) => ({
-                id: (index + 1).toString().padStart(4, '0'), // 0001
-                name: name.trim(),
-                buffer: null
-            }));
+            database = lines.map((line, index) => {
+                const trimmed = line.trim();
+                // 🔥 修改邏輯：直接擷取該行的前 4 個字元作為 ID
+                const extractedId = trimmed.substring(0, 4); 
+                
+                return {
+                    id: extractedId, // 顯示在上方小字
+                    name: trimmed,   // 顯示在下方大字 & 用於檔名
+                    buffer: null
+                };
+            });
 
             renderGallery();
             
@@ -382,7 +382,7 @@
         }
     });
 
-    // --- 2. 啟動系統: 載入聲音 ---
+    // --- 2. 啟動系統 ---
     async function startSystem() {
         ui.startBtn.style.display = 'none';
         ui.loadText.innerText = "正在同步聲音樣本...";
@@ -432,25 +432,24 @@
         });
     }
 
-    // --- 4. 互動邏輯 (更新為新介面) ---
+    // --- 4. 互動邏輯 ---
     function selectPokemon(item, idx) {
         if(!isStarted) return;
 
-        // 隱藏佔位符，顯示內容
         ui.placeholder.style.display = 'none';
         ui.techInfoBox.style.display = 'block';
-        ui.imgContainer.style.visibility = 'visible'; // 使用 visibility 保持版面佔位
+        ui.imgContainer.style.visibility = 'visible';
 
-        // 更新文字與圖片
+        // 更新 ID (上方小字)
         ui.mainIdText.innerText = item.id;
+        // 更新 名稱 (下方大字)
         ui.mainNameText.innerText = item.name;
+        // 更新 圖片
         ui.mainImg.src = `pic/${item.name}${CONFIG.imgExt}`;
 
-        // 處理列表選中樣式
         document.querySelectorAll('.gallery-item').forEach(el => el.classList.remove('selected'));
         document.getElementById(`item-${idx}`).classList.add('selected');
 
-        // 播放聲音與動畫
         playSound(item);
         triggerAnimation();
     }
