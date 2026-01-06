@@ -2,19 +2,16 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>寶可夢電子圖鑑 (宇宙科技版)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>寶可夢聲紋辨識器 V5.0</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         :root {
-            /* 原本的變數 */
             --pokedex-red: #dc0a2d;
             --pokedex-dark-red: #8b0000;
-            --screen-bg: #232323;
-            /* ✨ 新增：宇宙科技風主題色 ✨ */
-            --cosmic-blue: #00f7ff; /* 發光的青藍色 */
-            --cosmic-dark: #0a0a1a; /* 深邃宇宙藍 */
-            --cosmic-glow: rgba(0, 247, 255, 0.5); /* 發光效果 */
+            --screen-bg: #1a1a1a;
+            --ui-green: #4dad5b;
+            --ui-cyan: #30a7d7;
         }
 
         body {
@@ -24,8 +21,9 @@
             padding: 0;
             display: flex;
             justify-content: center;
+            /* 關鍵修正：使用 dynamic viewport height 避開手機工具列 */
             height: 100vh;
-            height: 100dvh; /* iOS Safari Fix */
+            height: 100dvh;
             overflow: hidden;
         }
 
@@ -36,11 +34,11 @@
             height: 100%;
             display: flex;
             flex-direction: column;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
             position: relative;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
         }
 
-        /* 頂部裝飾 */
+        /* --- 頂部偵測列 (Top Bar) --- */
         .top-bar {
             padding: 15px 20px;
             display: flex;
@@ -48,216 +46,279 @@
             border-bottom: 5px solid var(--pokedex-dark-red);
             box-shadow: 0 4px 5px rgba(0,0,0,0.2);
             z-index: 10;
-            flex-shrink: 0;
+            flex-shrink: 0; /* 防止被擠壓 */
         }
 
         .camera-lens {
-            width: 50px;
-            height: 50px;
+            width: 60px; /* 稍微加大 */
+            height: 60px;
             background: radial-gradient(circle at 30% 30%, #44d4ff, #005a9e);
             border-radius: 50%;
-            border: 3px solid white;
+            border: 4px solid white;
             box-shadow: 0 0 10px rgba(255,255,255,0.5);
-            margin-right: 15px;
+            margin-right: 20px;
+            /* 關鍵修正：強制保持正圓形，不被壓縮 */
+            flex-shrink: 0;
+            aspect-ratio: 1 / 1; 
         }
 
-        .indicators { display: flex; gap: 8px; }
-        .led { width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.2); }
+        .indicators {
+            display: flex;
+            gap: 10px;
+        }
+
+        .led {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 1px solid rgba(0,0,0,0.2);
+            box-shadow: inset 1px 1px 2px rgba(0,0,0,0.3);
+        }
         .led.red { background-color: #ff5555; }
         .led.yellow { background-color: #ffcc00; }
         .led.green { background-color: #55ff55; }
 
-        /* 主畫面容器 */
+        /* --- 主螢幕區域 --- */
         .screen-container {
             background-color: #dedede;
-            margin: 15px;
-            padding: 15px;
-            border-radius: 15px;
+            margin: 15px 20px;
+            padding: 0; /* 移除內距讓螢幕滿版 */
+            border-radius: 10px 10px 0 0; 
+            /* 裝飾性切角 */
             clip-path: polygon(0 0, 100% 0, 100% 95%, 90% 100%, 0 100%);
             border: 2px solid #555;
             flex-grow: 1;
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            /* 修正底部安全距離 */
-            margin-bottom: max(15px, env(safe-area-inset-bottom));
+            position: relative;
         }
 
         .screen {
             background-color: var(--screen-bg);
-            border: 2px solid #555;
-            border-radius: 10px;
-            padding: 10px;
             flex-grow: 1;
             display: flex;
             flex-direction: column;
             align-items: center;
+            padding: 15px;
+            overflow-y: auto;
             position: relative;
-            overflow: hidden;
         }
 
-        /* =========================================
-           ✨ 全新設計的展示區 (Display Area) ✨
-           ========================================= */
-        .display-area {
+        /* 分頁按鈕 */
+        .tab-buttons {
+            display: flex;
             width: 100%;
-            height: 50%; /* 稍微加大高度比例 */
+            background: #222;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            overflow: hidden;
+            border: 1px solid #444;
+            flex-shrink: 0;
+        }
+        .tab-btn {
+            flex: 1;
+            background: #222;
+            border: none;
+            color: #888;
+            padding: 12px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.9rem;
+            transition: 0.2s;
+        }
+        .tab-btn.active {
+            background: #333;
+            color: var(--ui-green);
+            border-bottom: 3px solid var(--ui-green);
+        }
+
+        /* 內容區塊 */
+        .section {
+            display: none;
+            width: 100%;
+            height: 100%;
+            flex-direction: column;
+            align-items: center;
+        }
+        .section.active { display: flex; }
+
+        /* --- 掃描介面 --- */
+        canvas {
+            width: 100%;
+            height: 80px;
+            background-color: #000;
+            border: 1px solid var(--ui-green);
+            border-radius: 4px;
+            margin-bottom: 15px;
+            flex-shrink: 0;
+        }
+
+        .pokemon-display {
+            width: 100%;
+            flex-grow: 1;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            position: relative;
-            overflow: hidden; /* 隱藏超出的發光效果 */
-            
-            /* 深邃宇宙背景 */
-            background: radial-gradient(circle at center, #1a1a3a 0%, var(--cosmic-dark) 80%);
-            border-bottom: 2px solid var(--cosmic-blue); /* 底部邊框改為發光藍 */
-            box-shadow: inset 0 0 20px var(--cosmic-dark);
+            border: 2px dashed #444;
+            border-radius: 10px;
+            background: rgba(0,0,0,0.3);
             margin-bottom: 10px;
-            border-radius: 5px; /* 稍微圓角 */
+            position: relative;
+            min-height: 200px;
         }
 
-        /* 利用偽元素製作發光圓環 - 外圈 */
-        .display-area::before {
-            content: '';
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            width: 85%; height: 85%; /* 圓環大小 */
-            border-radius: 50%;
-            border: 2px solid var(--cosmic-blue);
-            box-shadow: 0 0 15px var(--cosmic-glow), inset 0 0 15px var(--cosmic-glow);
-            opacity: 0.3;
-            pointer-events: none; /* 不擋住點擊 */
-        }
-
-        /* 利用偽元素製作發光圓環 - 內圈 (能量場) */
-        .display-area::after {
-            content: '';
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            width: 65%; height: 65%; /* 內圈大小 */
-            border-radius: 50%;
-            /* 能量場漸層 */
-            background: radial-gradient(circle, rgba(0, 247, 255, 0.15) 0%, transparent 70%);
-            border: 3px solid var(--cosmic-blue);
-            /* 強烈的發光效果 */
-            box-shadow: 
-                0 0 30px var(--cosmic-glow),
-                inset 0 0 30px var(--cosmic-glow);
-            pointer-events: none;
-        }
-
-        .display-img {
-            max-width: 80%; /* 稍微縮小以放入圓環 */
-            max-height: 70%;
+        .pokemon-display img {
+            max-width: 90%;
+            max-height: 220px;
             object-fit: contain;
             display: none;
-            z-index: 10; /* 確保在圓環之上 */
-            /* 改為藍色發光投影 */
-            filter: drop-shadow(0 0 15px var(--cosmic-glow));
-            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            filter: drop-shadow(0 0 10px rgba(255,255,255,0.2));
+            z-index: 2;
         }
 
-        @keyframes popIn {
-            from { transform: scale(0.5); opacity: 0; }
-            to { transform: scale(1); opacity: 1; }
+        .placeholder-icon {
+            color: var(--ui-green);
+            font-size: 5rem;
+            opacity: 0.3;
+            animation: pulse 2s infinite;
         }
 
-        .display-name {
-            font-family: 'Segoe UI', sans-serif;
-            font-size: 2rem;
+        @keyframes pulse { 0% { opacity: 0.2; transform: scale(0.95); } 50% { opacity: 0.6; transform: scale(1.05); } 100% { opacity: 0.2; transform: scale(0.95); } }
+
+        .result-box {
+            width: 100%;
+            background: rgba(0,0,0,0.6);
+            padding: 10px;
+            border-radius: 8px;
+            border-left: 5px solid var(--ui-green);
+            text-align: left;
+            margin-top: auto;
+        }
+
+        .result-name {
+            font-size: 1.4rem;
             font-weight: bold;
-            /* 科技感文字樣式 */
-            color: var(--cosmic-blue);
-            text-shadow: 0 0 10px var(--cosmic-glow);
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            
-            position: absolute; /* 懸浮在頂部 */
-            top: 15px;
-            width: 100%;
-            text-align: center;
-            z-index: 10;
+            color: white;
+            letter-spacing: 1px;
+        }
+        
+        .result-score {
+            font-size: 0.85rem;
+            color: #aaa;
+            margin-top: 3px;
         }
 
-        .placeholder-text {
-            color: var(--cosmic-blue);
+        /* --- 資料庫介面 (圖鑑) --- */
+        .gallery-header {
+            width: 100%;
+            text-align: center;
+            padding: 10px;
+            color: var(--ui-cyan);
             font-size: 1.2rem;
-            text-align: center;
-            z-index: 10;
-            opacity: 0.7;
-            text-shadow: 0 0 5px var(--cosmic-glow);
-        }
-        /* =========================================
-           ✨ 展示區樣式結束 ✨
-           ========================================= */
-
-
-        /* 下半部：列表選單 */
-        .list-area {
-            width: 100%;
-            height: 50%;
-            overflow-y: auto;
-            padding-right: 5px;
+            font-weight: bold;
+            border-bottom: 1px solid #444;
+            margin-bottom: 10px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
         }
 
-        /* 列表樣式 */
-        .poke-list {
+        .gallery-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr); /* 兩欄式 */
+            grid-template-columns: repeat(2, 1fr); /* 手機版改為兩欄較大 */
             gap: 10px;
+            width: 100%;
+            overflow-y: auto;
+            padding-bottom: 20px;
         }
 
-        .poke-item {
-            background: rgba(255, 255, 255, 0.05);
+        .gallery-item {
+            background: rgba(255,255,255,0.05);
             border: 1px solid #444;
             border-radius: 8px;
             padding: 10px;
             display: flex;
             align-items: center;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: 0.2s;
         }
 
-        .poke-item:active {
-            background: rgba(0, 247, 255, 0.2); /* 改為藍色 */
-            border-color: var(--cosmic-blue);
-            transform: scale(0.98);
-        }
+        .gallery-item:active { transform: scale(0.98); background: rgba(255,255,255,0.1); }
+        .gallery-item:hover { border-color: var(--ui-cyan); }
 
-        .poke-item.active {
-            background: rgba(0, 247, 255, 0.15); /* 改為藍色 */
-            border-color: var(--cosmic-blue);
-            box-shadow: 0 0 10px var(--cosmic-glow);
-        }
-
-        .poke-icon {
+        .gallery-thumb {
             width: 40px;
             height: 40px;
             object-fit: contain;
-            margin-right: 10px;
-            background: rgba(0,0,0,0.3);
+            background: #000;
             border-radius: 50%;
             padding: 2px;
+            margin-right: 10px;
+            border: 1px solid #666;
         }
 
-        .poke-label {
-            color: #ddd;
-            font-weight: bold;
-            font-size: 1rem;
+        .gallery-info {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
+
+        .gallery-name { font-size: 0.9rem; color: #fff; font-weight: bold; }
+        .gallery-id { font-size: 0.7rem; color: #666; }
+
+        /* --- 控制面板 --- */
+        .control-panel {
+            padding: 15px 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            background-color: var(--pokedex-red);
+            flex-shrink: 0;
+            /* 關鍵修正：增加底部安全距離，防止按鈕被 Home Bar 擋住 */
+            padding-bottom: max(20px, env(safe-area-inset-bottom));
+        }
+
+        .btn {
+            border: none;
+            padding: 16px;
+            font-size: 1rem;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            border-radius: 30px; /* 改為膠囊狀 */
+            box-shadow: 0 4px 0 rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: 0.1s;
+        }
+
+        .btn:active {
+            transform: translateY(3px);
+            box-shadow: none;
+        }
+
+        .btn-record { background-color: #2196F3; }
+        .btn-stop { background-color: #f44336; }
+        .btn:disabled { background-color: #888; cursor: not-allowed; opacity: 0.6; transform: none; box-shadow: none;}
 
         /* Loading */
         #loadingOverlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.95); z-index: 20; color: var(--cosmic-blue); /* 改為藍色 */
+            position: absolute; top:0; left:0; width:100%; height:100%;
+            background: rgba(0,0,0,0.9); z-index: 50;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            font-family: monospace; text-align: center;
-            transition: opacity 0.5s ease;
-            text-shadow: 0 0 5px var(--cosmic-glow);
+            color: var(--ui-green);
         }
+        .start-btn {
+            margin-top: 20px; padding: 12px 25px;
+            background: var(--ui-green); color: #000;
+            border: none; border-radius: 25px;
+            font-weight: bold; font-size: 1rem;
+            cursor: pointer;
+        }
+
     </style>
 </head>
 <body>
@@ -274,148 +335,356 @@
 
     <div class="screen-container">
         <div class="screen">
+            
             <div id="loadingOverlay">
-                <i class="fas fa-atom fa-spin fa-3x" style="margin-bottom:20px"></i>
-                <div id="loadingText">初始化系統...</div>
+                <i class="fas fa-circle-notch fa-spin fa-3x"></i>
+                <div id="loadingText" style="margin-top:20px; letter-spacing:1px;">系統初始化...</div>
+                <button id="startBtn" class="start-btn" onclick="startSystem()" style="display:none;">
+                    <i class="fas fa-power-off"></i> 啟動系統
+                </button>
             </div>
 
-            <div class="display-area">
-                <div class="placeholder-text" id="placeholder">
-                    <i class="fas fa-hand-pointer fa-2x"></i><br><br>SELECT POKÉMON
+            <div class="tab-buttons">
+                <button class="tab-btn active" onclick="switchTab('scan')">聲紋比對</button>
+                <button class="tab-btn" onclick="switchTab('gallery')">資料庫</button>
+            </div>
+
+            <div id="scanSection" class="section active">
+                <canvas id="visualizer"></canvas>
+                
+                <div class="pokemon-display">
+                    <i class="fas fa-fingerprint placeholder-icon" id="placeholderIcon"></i>
+                    <img id="pokemonImg" src="" alt="Pokemon">
                 </div>
-                <div id="mainName" class="display-name"></div>
-                <img id="mainImg" class="display-img" src="">
+
+                <div class="result-box">
+                    <div class="result-name" id="matchName">準備就緒</div>
+                    <div class="result-score" id="matchScore">請長按下方藍色按鈕錄音</div>
+                </div>
             </div>
 
-            <div class="list-area">
-                <div class="poke-list" id="pokeList">
+            <div id="gallerySection" class="section">
+                <div class="gallery-header">選擇寶可夢</div> 
+                <div class="gallery-grid" id="galleryGrid">
                     </div>
             </div>
+
         </div>
+    </div>
+
+    <div class="control-panel">
+        <button class="btn btn-record" id="btnRecord" disabled 
+            ontouchstart="startRecording()" ontouchend="stopRecording()"
+            onmousedown="startRecording()" onmouseup="stopRecording()">
+            <i class="fas fa-microphone"></i> 錄音
+        </button>
+        <button class="btn btn-stop" id="btnStop" disabled onclick="stopRecording()">
+            <i class="fas fa-stop"></i> 停止
+        </button>
     </div>
 </div>
 
 <script>
     // ==========================================
-    // ⚙️ 設定區
+    // ⚙️ 系統設定
     // ==========================================
     const CONFIG = {
         audioExt: '.opus',    // 聲音檔格式
-        imgExt: '.png'       // 圖片檔格式
+        imgExt: '.png',      // 圖片檔格式
+        fftSize: 1024,       // 解析度
+        timeSlices: 30,      // 時間切片數
+        freqBands: 32,       // 頻率區間數
+        silenceThresh: 0.02  // 靜音門檻
     };
 
     // ==========================================
     // 🚀 全域變數
     // ==========================================
-    let audioCtx = null; // 延遲初始化
-    let database = []; // {name}
-    let currentSource = null;
+    let audioCtx;
+    let database = []; 
+    let mediaRecorder;
+    let audioChunks = [];
+    let analyser, dataArray, animId;
+    let isStarted = false;
 
     // DOM Elements
     const ui = {
         overlay: document.getElementById('loadingOverlay'),
-        text: document.getElementById('loadingText'),
-        img: document.getElementById('mainImg'),
-        name: document.getElementById('mainName'),
-        placeholder: document.getElementById('placeholder'),
-        list: document.getElementById('pokeList')
+        loadText: document.getElementById('loadingText'),
+        startBtn: document.getElementById('startBtn'),
+        matchName: document.getElementById('matchName'),
+        matchScore: document.getElementById('matchScore'),
+        img: document.getElementById('pokemonImg'),
+        icon: document.getElementById('placeholderIcon'),
+        canvas: document.getElementById('visualizer'),
+        galleryGrid: document.getElementById('galleryGrid'),
+        btnRec: document.getElementById('btnRecord'),
+        btnStop: document.getElementById('btnStop')
     };
 
-    // 1. 讀取清單
+    // --- 1. 載入流程 ---
     document.addEventListener('DOMContentLoaded', async () => {
         try {
-            const res = await fetch('list.txt?nocache=' + Date.now());
-            if (!res.ok) throw new Error("找不到 list.txt");
+            // 讀取 list.txt
+            const res = await fetch('list.txt?t=' + Date.now());
+            if(!res.ok) throw new Error("缺少 list.txt");
+            const txt = await res.text();
             
-            const text = await res.text();
-            const names = text.split(/\r?\n/).filter(line => line.trim() !== "");
+            // 建立資料庫索引
+            const lines = txt.split(/\r?\n/).filter(line => line.trim());
+            database = lines.map((name, index) => ({
+                id: (index + 1).toString().padStart(4, '0'), // 產生編號 0001, 0002...
+                name: name.trim(),
+                buffer: null,
+                signature: null
+            }));
 
-            // 存入資料庫
-            database = names.map(n => ({ name: n.trim() }));
+            renderGallery();
             
-            // 渲染列表
-            renderList();
+            ui.loadText.innerHTML = `讀取完成<br>共 ${database.length} 筆資料`;
+            document.querySelector('.fa-spin').style.display = 'none';
+            ui.startBtn.style.display = 'inline-block';
 
-            // 🔥 自動完成：延遲 0.5 秒後淡出遮罩
-            setTimeout(() => {
-                ui.text.innerHTML = `SYSTEM READY<br>Loaded ${names.length} units`;
-                ui.overlay.style.opacity = '0';
-                setTimeout(() => { ui.overlay.style.display = 'none'; }, 500);
-            }, 500);
-
-        } catch (err) {
-            ui.text.innerText = "ERROR: " + err.message;
-            ui.text.style.color = "red";
+        } catch (e) {
+            ui.loadText.innerText = "錯誤: " + e.message;
         }
     });
 
-    // 2. 渲染列表
-    function renderList() {
-        ui.list.innerHTML = '';
-        database.forEach((item, index) => {
-            const div = document.createElement('div');
-            div.className = 'poke-item';
-            div.dataset.index = index;
+    async function startSystem() {
+        ui.startBtn.style.display = 'none';
+        ui.loadText.innerText = "正在分析聲紋特徵...";
+        document.querySelector('.fa-spin').style.display = 'inline-block';
+
+        try {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+            let loaded = 0;
+            for(let item of database) {
+                try {
+                    const res = await fetch(`wav/${item.name}${CONFIG.audioExt}`);
+                    if(res.ok) {
+                        const buf = await res.arrayBuffer();
+                        item.buffer = await audioCtx.decodeAudioData(buf);
+                        item.signature = await generateSignature(item.buffer);
+                        loaded++;
+                        ui.loadText.innerText = `分析中 (${loaded}/${database.length})...`;
+                    }
+                } catch(err) { console.warn(item.name, err); }
+            }
             
-            div.innerHTML = `
-                <img class="poke-icon" src="pic/${item.name}${CONFIG.imgExt}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iIzY2NiIgZD0iTTEyIDJDMiAyIDIgMTIgMiAxMnMyIDEwIDEwIDEwIDEwLTEwIDEwLTEwUzIyIDIgMTIgMnptMCAxOGMtNC40MSAwLTgtMy41OS04LThzMy41OS04IDgtOCA4IDMuNTkgOCA4LTMuNTkgOCA4IDh6Ii8+PC9zdmc+'">
-                <div class="poke-label">${item.name}</div>
+            ui.overlay.style.display = 'none';
+            ui.btnRec.disabled = false;
+            isStarted = true;
+
+        } catch(err) {
+            alert("無法啟動 AudioContext: " + err);
+        }
+    }
+
+    // --- 2. 聲紋演算法 (矩陣特徵) ---
+    function trimSilence(buffer) {
+        const raw = buffer.getChannelData(0);
+        let start = 0, end = raw.length - 1;
+        while(start < end && Math.abs(raw[start]) < CONFIG.silenceThresh) start++;
+        while(end > start && Math.abs(raw[end]) < CONFIG.silenceThresh) end--;
+        
+        if (end - start < buffer.sampleRate * 0.1) return buffer; 
+        
+        const newLen = end - start + 1;
+        const ctx = new OfflineAudioContext(1, newLen, buffer.sampleRate);
+        const newBuf = ctx.createBuffer(1, newLen, buffer.sampleRate);
+        newBuf.copyToChannel(raw.slice(start, end+1), 0);
+        return newBuf;
+    }
+
+    async function generateSignature(buffer) {
+        const trimmed = trimSilence(buffer);
+        const ctx = new OfflineAudioContext(1, trimmed.length, trimmed.sampleRate);
+        const source = ctx.createBufferSource();
+        source.buffer = trimmed;
+        
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = CONFIG.fftSize;
+        source.connect(analyser);
+        analyser.connect(ctx.destination);
+        source.start(0);
+
+        const duration = trimmed.duration;
+        const interval = duration / CONFIG.timeSlices;
+        const signature = [];
+
+        for(let i=0; i<CONFIG.timeSlices; i++) {
+            const t = Math.min(i * interval, duration - 0.001);
+            ctx.suspend(t).then(() => {
+                const fft = new Uint8Array(analyser.frequencyBinCount);
+                analyser.getByteFrequencyData(fft);
+                
+                // 壓縮頻段 (Binning)
+                const bands = new Float32Array(CONFIG.freqBands);
+                const step = Math.floor(fft.length / CONFIG.freqBands);
+                for(let b=0; b<CONFIG.freqBands; b++) {
+                    let sum = 0;
+                    for(let k=0; k<step; k++) sum += fft[b*step + k];
+                    bands[b] = sum / step;
+                }
+                signature.push(bands);
+            }).then(() => ctx.resume());
+        }
+
+        await ctx.startRendering();
+        
+        // 矩陣歸一化
+        let max = 0;
+        signature.forEach(row => row.forEach(v => { if(v>max) max=v; }));
+        if(max > 0) signature.forEach(row => row.forEach((v,i) => row[i] = v/max));
+        
+        return signature;
+    }
+
+    function compareSignatures(sigA, sigB) {
+        if(!sigA || !sigB) return 0;
+        let dot=0, nA=0, nB=0;
+        for(let t=0; t<CONFIG.timeSlices; t++) {
+            if(!sigA[t] || !sigB[t]) continue;
+            for(let f=0; f<CONFIG.freqBands; f++) {
+                dot += sigA[t][f] * sigB[t][f];
+                nA += sigA[t][f] ** 2;
+                nB += sigB[t][f] ** 2;
+            }
+        }
+        if(nA===0 || nB===0) return 0;
+        return dot / (Math.sqrt(nA) * Math.sqrt(nB));
+    }
+
+    // --- 3. 錄音與互動 ---
+    async function startRecording(e) {
+        if(e) e.preventDefault(); // 防止手機長按選取文字
+        if(!isStarted) return;
+        
+        switchTab('scan');
+        ui.btnRec.classList.add('active'); // 視覺回饋
+        ui.btnRec.style.backgroundColor = '#1976D2';
+        
+        ui.matchName.innerText = "聆聽中...";
+        ui.matchName.style.color = "#fff";
+        ui.matchScore.innerText = "...";
+        ui.img.style.display = 'none';
+        ui.icon.style.display = 'block';
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+            
+            const src = audioCtx.createMediaStreamSource(stream);
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 256;
+            src.connect(analyser);
+            dataArray = new Uint8Array(analyser.frequencyBinCount);
+            drawVisualizer();
+
+            mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+            mediaRecorder.onstop = async () => {
+                cancelAnimationFrame(animId);
+                stream.getTracks().forEach(t => t.stop());
+                const blob = new Blob(audioChunks, { type: 'audio/webm' });
+                const buf = await audioCtx.decodeAudioData(await blob.arrayBuffer());
+                analyze(buf);
+            };
+
+            mediaRecorder.start();
+        } catch(err) { alert("Mic Error: "+err); }
+    }
+
+    function stopRecording(e) {
+        if(e) e.preventDefault();
+        if(mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+            ui.btnRec.classList.remove('active');
+            ui.btnRec.style.backgroundColor = '#2196F3';
+        }
+    }
+
+    async function analyze(buf) {
+        ui.matchName.innerText = "分析中...";
+        const inputSig = await generateSignature(buf);
+        
+        let best = null, maxScore = -1;
+        for(let item of database) {
+            const score = compareSignatures(inputSig, item.signature);
+            if(score > maxScore) { maxScore = score; best = item; }
+        }
+
+        const pct = (maxScore * 100).toFixed(1);
+        if(maxScore > 0.60) { // 門檻
+            ui.matchName.innerText = best.name;
+            ui.matchName.style.color = "#4dad5b"; // Green
+            ui.matchScore.innerText = `相似度: ${pct}%`;
+            ui.img.src = `pic/${best.name}${CONFIG.imgExt}`;
+            ui.img.onload = () => { ui.img.style.display='block'; ui.icon.style.display='none'; };
+        } else {
+            ui.matchName.innerText = "無法辨識";
+            ui.matchName.style.color = "#888";
+            ui.matchScore.innerText = `最高相似: ${best ? best.name : '?'} (${pct}%)`;
+        }
+    }
+
+    // --- UI 輔助 ---
+    function switchTab(mode) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        
+        if(mode === 'scan') {
+            document.querySelectorAll('.tab-btn')[0].classList.add('active');
+            document.getElementById('scanSection').classList.add('active');
+        } else {
+            document.querySelectorAll('.tab-btn')[1].classList.add('active');
+            document.getElementById('gallerySection').classList.add('active');
+        }
+    }
+
+    function renderGallery() {
+        ui.galleryGrid.innerHTML = '';
+        database.forEach(item => {
+            const el = document.createElement('div');
+            el.className = 'gallery-item';
+            el.innerHTML = `
+                <img src="pic/${item.name}${CONFIG.imgExt}" class="gallery-thumb" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iIzY2NiIgZD0iTTEyIDJDMiAyIDIgMTIgMiAxMnMyIDEwIDEwIDEwIDEwLTEwIDEwLTEwUzIyIDIgMTIgMnptMCAxOGMtNC40MSAwLTgtMy41OS04LThzMy41OS04IDgtOCA4IDMuNTkgOCA4LTMuNTkgOCA4IDh6Ii8+PC9zdmc+'">
+                <div class="gallery-info">
+                    <div class="gallery-id">No.${item.id}</div>
+                    <div class="gallery-name">${item.name}</div>
+                </div>
             `;
-            
-            div.onclick = () => selectPokemon(item, div);
-            ui.list.appendChild(div);
+            el.onclick = () => playSound(item);
+            ui.galleryGrid.appendChild(el);
         });
     }
 
-    // 3. 選擇寶可夢 (播放聲音 + 顯示大圖)
-    async function selectPokemon(item, element) {
-        // 🔥 自動啟動核心：在第一次點擊時初始化 AudioContext
-        if (!audioCtx) {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        }
-        // 如果被瀏覽器暫停 (Suspended)，則強制恢復
-        if (audioCtx.state === 'suspended') {
-            await audioCtx.resume();
-        }
+    function playSound(item) {
+        if(!isStarted || !item.buffer) return;
+        const src = audioCtx.createBufferSource();
+        src.buffer = item.buffer;
+        src.connect(audioCtx.destination);
+        src.start(0);
+    }
 
-        // UI 更新
-        document.querySelectorAll('.poke-item').forEach(el => el.classList.remove('active'));
-        element.classList.add('active');
-
-        // 顯示大圖
-        ui.placeholder.style.display = 'none';
-        ui.img.style.display = 'none'; 
-        ui.img.src = `pic/${item.name}${CONFIG.imgExt}`;
-        ui.img.onload = () => { ui.img.style.display = 'block'; };
-        ui.img.onerror = () => { ui.placeholder.style.display = 'block'; ui.placeholder.innerHTML = "無圖片"; };
-        
-        // 顯示名字 (現在在上方)
-        ui.name.innerText = item.name;
-
-        // 停止前一個聲音
-        if (currentSource) {
-            try { currentSource.stop(); } catch(e) {}
-        }
-
-        // 播放聲音
-        try {
-            const res = await fetch(`wav/${item.name}${CONFIG.audioExt}`);
-            if (res.ok) {
-                const buf = await res.arrayBuffer();
-                const audioBuffer = await audioCtx.decodeAudioData(buf);
-                
-                const source = audioCtx.createBufferSource();
-                source.buffer = audioBuffer;
-                source.connect(audioCtx.destination);
-                source.start(0);
-                currentSource = source;
-            } else {
-                console.warn("找不到聲音檔");
-            }
-        } catch (err) {
-            console.error("播放失敗:", err);
+    function drawVisualizer() {
+        animId = requestAnimationFrame(drawVisualizer);
+        analyser.getByteFrequencyData(dataArray);
+        const ctx = ui.canvas.getContext('2d');
+        const w = ui.canvas.width;
+        const h = ui.canvas.height;
+        ctx.fillStyle = '#000'; ctx.fillRect(0,0,w,h);
+        const barW = (w / dataArray.length) * 2.5;
+        let x = 0;
+        for(let i=0; i<dataArray.length; i++) {
+            const barH = (dataArray[i]/255)*h;
+            ctx.fillStyle = `rgb(0, ${dataArray[i]+50}, 0)`;
+            ctx.fillRect(x, h-barH, barW, barH);
+            x += barW+1;
         }
     }
 </script>
+
 </body>
 </html>
