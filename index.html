@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>寶可夢叫聲辨識器 v5.0 (TXT版)</title>
+    <title>寶可夢叫聲辨識器 v6.1 (相對路徑版)</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         :root {
@@ -139,7 +139,6 @@
         }
         
         .btn-gallery { background-color: #FF9800; grid-column: 1 / -1; }
-        .btn-load { background-color: #4CAF50; grid-column: 1 / -1; }
         .btn-record { background-color: #2196F3; }
         .btn-stop { background-color: #f44336; }
         .btn:disabled { background-color: #999; cursor: not-allowed; box-shadow: none; transform: none;}
@@ -311,7 +310,7 @@
             <h2>寶可夢辨識系統</h2>
             <canvas id="visualizer"></canvas>
             
-            <div class="status-text" id="statusMsg">請點擊下方按鈕讀取 list.txt</div>
+            <div class="status-text" id="statusMsg">初始化中...</div>
 
             <div class="pokemon-display" id="imgContainer">
                 <i class="fas fa-question placeholder-icon" id="placeholderIcon"></i>
@@ -330,9 +329,6 @@
         <button class="btn btn-gallery" onclick="openGallery()">
             <i class="fas fa-book-open fa-lg"></i><br>瀏覽圖鑑
         </button>
-        <button class="btn btn-load" id="btnLoad" onclick="initAndLoadData()">
-            <i class="fas fa-power-off fa-lg"></i><br>讀取 list.txt 並啟動
-        </button>
         <button class="btn btn-record" id="btnRecord" disabled onclick="startRecording()">
             <i class="fas fa-microphone fa-lg"></i><br>錄音
         </button>
@@ -345,7 +341,7 @@
 <div class="modal-overlay" id="galleryModal">
     <div class="modal-content">
         <div class="modal-header">
-            <span><i class="fas fa-list"></i> 已載入名單 (來自 list.txt)</span>
+            <span><i class="fas fa-list"></i> 已載入名單</span>
             <button class="close-btn" onclick="closeGallery()"><i class="fas fa-times"></i></button>
         </div>
         <div class="gallery-grid" id="galleryGrid"></div>
@@ -354,18 +350,19 @@
 
 <script>
     // ==========================================
-    // ⚙️ 檔案格式設定
+    // ⚙️ 檔案格式設定 (使用相對路徑)
     // ==========================================
     const AUDIO_EXT = '.opus'; 
     const IMAGE_EXT = '.png';
-    const LIST_FILENAME = 'list.txt'; 
+    // 使用 ./ 表示當前目錄，這對 GitHub Pages 與 Local Server 都通用
+    const LIST_PATH = './list.txt'; 
 
     // ==========================================
     // 🚀 系統核心程式碼
     // ==========================================
 
-    let currentPokemonList = []; // 將會從 txt 檔案讀取
-    let audioContext;
+    let currentPokemonList = []; 
+    let audioContext; 
     let database = []; 
     let mediaRecorder;
     let audioChunks = [];
@@ -375,7 +372,6 @@
     
     // UI 元件
     const statusMsg = document.getElementById('statusMsg');
-    const btnLoad = document.getElementById('btnLoad');
     const btnRecord = document.getElementById('btnRecord');
     const btnStop = document.getElementById('btnStop');
     const resultArea = document.getElementById('resultArea');
@@ -388,69 +384,72 @@
     const galleryGrid = document.getElementById('galleryGrid');
     const galleryModal = document.getElementById('galleryModal');
 
-    // --- 1. 從文字檔讀取清單 (核心修改) ---
+    // --- 0. 自動初始化 ---
+    window.addEventListener('DOMContentLoaded', () => {
+        // 檢查是否為 file:// 協議 (直接雙擊開啟)
+        if (window.location.protocol === 'file:') {
+            alert(
+                "⚠️ 注意 ⚠️\n\n" +
+                "您正在使用「雙擊檔案」的方式開啟網頁。\n" +
+                "基於瀏覽器安全限制，這會導致無法讀取 list.txt。\n\n" +
+                "請使用 VS Code 的 'Live Server' 套件，\n" +
+                "或將檔案上傳至 GitHub Pages 才能正常運作。"
+            );
+            statusMsg.innerText = "❌ 錯誤：請使用伺服器模式開啟 (Live Server)";
+            return;
+        }
+        initAndLoadData();
+    });
+
+    // --- 1. 從文字檔讀取清單 ---
     async function fetchListFromTextFile() {
         try {
-            // 加上 timestamp 防止 GitHub Pages 快取舊的 list.txt
+            // 加入 timestamp 避免快取
             const timestamp = new Date().getTime();
-            const response = await fetch(`${LIST_FILENAME}?t=${timestamp}`);
+            // 這裡使用 ./list.txt
+            const response = await fetch(`${LIST_PATH}?t=${timestamp}`);
             
             if (!response.ok) {
-                throw new Error(`找不到 ${LIST_FILENAME} (錯誤代碼: ${response.status})`);
+                throw new Error(`找不到 ${LIST_PATH} (Code: ${response.status})`);
             }
             
             const text = await response.text();
             
-            // 處理文字：以換行切割，去除空白，去除空行
             const list = text.split('\n')
                              .map(line => line.trim())
                              .filter(line => line.length > 0);
                              
             if (list.length === 0) throw new Error("list.txt 內容為空");
-            
-            console.log("讀取到的名單:", list);
             return list;
-
         } catch (err) {
             console.error(err);
             statusMsg.innerText = `❌ 錯誤: ${err.message}`;
-            alert(`讀取 ${LIST_FILENAME} 失敗！\n請確認檔案已上傳至 GitHub 且位置正確。`);
             return [];
         }
     }
 
-    // --- 2. 初始化流程 ---
+    // --- 2. 初始化與資料載入 ---
     async function initAndLoadData() {
         if (!audioContext) {
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
         }
-        if (audioContext.state === 'suspended') {
-            await audioContext.resume();
-        }
 
-        btnLoad.disabled = true;
-        btnLoad.innerHTML = '<i class="fas fa-spinner fa-spin"></i><br>讀取清單中...';
+        statusMsg.innerText = "正在讀取 list.txt...";
         
-        // 步驟 1: 先讀取 list.txt
         const fetchedList = await fetchListFromTextFile();
-        if (fetchedList.length === 0) {
-            btnLoad.disabled = false;
-            btnLoad.innerHTML = '<i class="fas fa-redo"></i><br>重試讀取';
-            return;
-        }
+        if (fetchedList.length === 0) return;
 
         currentPokemonList = fetchedList;
-        statusMsg.innerText = `名單讀取成功 (${currentPokemonList.length} 隻)\n正在下載聲音檔...`;
+        statusMsg.innerText = `讀取成功 (${currentPokemonList.length} 隻)\n正在下載聲音檔...`;
 
-        // 步驟 2: 根據清單下載聲音並建立特徵庫
         database = [];
         let successCount = 0;
         let failCount = 0;
 
-        for (let name of currentPokemonList) {
-            const audioPath = `wav/${name}${AUDIO_EXT}`;
+        const promises = currentPokemonList.map(async (name) => {
+            // 使用相對路徑 ./wav/
+            const audioPath = `./wav/${name}${AUDIO_EXT}`;
             try {
-                // 也加上 timestamp 防止快取舊音檔
                 const response = await fetch(audioPath); 
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 
@@ -464,34 +463,32 @@
                 console.error(`聲音載入失敗: ${name}`, err);
                 failCount++;
             }
-        }
+        });
+
+        await Promise.all(promises);
 
         if (successCount === 0) {
-            statusMsg.innerText = "❌ 聲音檔全數讀取失敗\n請確認 wav 資料夾內是否有對應的 .opus 檔";
-            btnLoad.disabled = false;
-            btnLoad.innerHTML = '<i class="fas fa-redo"></i><br>重試';
+            statusMsg.innerText = "❌ 聲音檔讀取失敗\n請檢查 wav 資料夾";
         } else {
             let msg = `✅ 系統就緒 (載入 ${successCount} 隻)`;
-            if(failCount > 0) msg += `\n⚠️ ${failCount} 個聲音檔缺失`;
+            if(failCount > 0) msg += `\n⚠️ ${failCount} 缺失`;
             statusMsg.innerText = msg;
-            
-            btnLoad.style.display = 'none'; 
-            btnRecord.disabled = false;
+            btnRecord.disabled = false; 
         }
     }
 
     // --- 圖鑑功能 ---
     function openGallery() {
         galleryGrid.innerHTML = '';
-        
         if (currentPokemonList.length === 0) {
-            galleryGrid.innerHTML = '<div style="width:100%;text-align:center;">請先點擊「啟動」讀取 list.txt</div>';
+            galleryGrid.innerHTML = '<div style="width:100%;text-align:center;">資料尚未載入</div>';
         } else {
             currentPokemonList.forEach(name => {
                 const item = document.createElement('div');
                 item.className = 'gallery-item';
-                const imgPath = `pic/${name}${IMAGE_EXT}`;
-                const audioPath = `wav/${name}${AUDIO_EXT}`;
+                // 使用相對路徑 ./pic/ 和 ./wav/
+                const imgPath = `./pic/${name}${IMAGE_EXT}`;
+                const audioPath = `./wav/${name}${AUDIO_EXT}`;
                 
                 item.innerHTML = `
                     <img src="${imgPath}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2NjYyIgZD0iTTEyIDJDMiAyIDIgMTIgMiAxMnMyIDEwIDEwIDEwIDEwLTEwIDEwLTEwUzIyIDIgMTIgMnpNMTAgMTcuNWwtNS01IDEuNS0xLjUgMy41IDMuNSA5LTkgMS41IDEuNUwxMCAxNy41eiIvPjwvc3ZnPg=='">
@@ -512,15 +509,10 @@
         galleryModal.style.display = 'flex';
     }
 
-    function closeGallery() {
-        galleryModal.style.display = 'none';
-    }
-    
-    galleryModal.onclick = (e) => {
-        if (e.target === galleryModal) closeGallery();
-    }
+    function closeGallery() { galleryModal.style.display = 'none'; }
+    galleryModal.onclick = (e) => { if (e.target === galleryModal) closeGallery(); }
 
-    // --- 核心演算法 (FFT特徵) ---
+    // --- 核心演算法 ---
     function extractFeature(audioBuffer) {
         const offlineCtx = new OfflineAudioContext(1, audioBuffer.length, audioBuffer.sampleRate);
         const source = offlineCtx.createBufferSource();
@@ -558,6 +550,10 @@
         pokemonImg.style.display = 'none';
         placeholderIcon.style.display = 'block';
         
+        if (audioContext && audioContext.state === 'suspended') {
+            await audioContext.resume();
+        }
+
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaRecorder = new MediaRecorder(stream);
@@ -591,7 +587,8 @@
             btnStop.disabled = false;
 
         } catch (err) {
-            alert("麥克風存取失敗: " + err);
+            alert("麥克風存取失敗 (請確認網址為 HTTPS 或 localhost): " + err);
+            statusMsg.innerText = "❌ 麥克風錯誤";
         }
     }
 
@@ -606,12 +603,11 @@
 
     function analyzeRecording(recordedBuffer) {
         if (database.length === 0) {
-            statusMsg.innerText = "⚠️ 資料庫為空";
+            statusMsg.innerText = "⚠️ 資料尚未載入";
             return;
         }
 
         const recordedFeature = calculateBandEnergy(recordedBuffer);
-        
         let bestMatch = null;
         let highestScore = -1;
 
@@ -645,7 +641,8 @@
     }
 
     function showPokemonImage(name) {
-        const imgPath = `pic/${name}${IMAGE_EXT}`;
+        // 使用相對路徑 ./pic/
+        const imgPath = `./pic/${name}${IMAGE_EXT}`;
         pokemonImg.src = imgPath;
         pokemonImg.onload = () => {
             placeholderIcon.style.display = 'none';
