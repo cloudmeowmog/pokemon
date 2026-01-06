@@ -2,54 +2,192 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>寶可夢聲紋辨識器 V4.0 (結構比對版)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>寶可夢聲紋辨識器 (最終版)</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        /* CSS 樣式維持一致，加入一點科技感調整 */
-        :root { --pokedex-red: #dc0a2d; --screen-bg: #1a1a1a; }
-        body { font-family: 'Segoe UI', sans-serif; background: #333; margin: 0; display: flex; justify-content: center; height: 100vh; overflow: hidden; }
-        .pokedex-container { width: 100%; max-width: 480px; background: var(--pokedex-red); height: 100%; display: flex; flex-direction: column; position: relative; }
-        
-        .top-bar { padding: 15px; display: flex; align-items: center; border-bottom: 4px solid #8b0000; box-shadow: 0 4px 5px rgba(0,0,0,0.2); z-index: 10; flex-shrink: 0; }
-        .camera-lens { width: 50px; height: 50px; background: radial-gradient(circle at 30% 30%, #44d4ff, #005a9e); border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(255,255,255,0.5); margin-right: 15px; }
-        
-        .screen-container { background: #dedede; margin: 15px; padding: 15px; border-radius: 10px 10px 0 0; border: 2px solid #555; flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; }
-        .screen { background: var(--screen-bg); border: 2px solid #555; border-radius: 8px; padding: 10px; flex-grow: 1; display: flex; flex-direction: column; align-items: center; position: relative; overflow-y: auto; }
+        :root {
+            --pokedex-red: #dc0a2d;
+            --pokedex-dark-red: #8b0000;
+            --screen-bg: #1a1a1a; 
+            --ui-blue: #2196F3;
+        }
 
-        .tab-buttons { display: flex; width: 100%; margin-bottom: 10px; border-bottom: 1px solid #444; flex-shrink: 0; }
-        .tab-btn { flex: 1; background: none; border: none; color: #666; padding: 10px; cursor: pointer; font-weight: bold; }
+        /* 1. iOS Safari 滿版修正核心 */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #333;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            /* 使用 dvh (Dynamic Viewport Height) 自動扣除瀏覽器工具列高度 */
+            height: 100vh; 
+            height: 100dvh; 
+            overflow: hidden;
+        }
+
+        .pokedex-container {
+            width: 100%;
+            max-width: 480px;
+            background-color: var(--pokedex-red);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            position: relative;
+        }
+
+        /* 頂部感應器區 */
+        .top-bar {
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            border-bottom: 5px solid var(--pokedex-dark-red);
+            box-shadow: 0 4px 5px rgba(0,0,0,0.2);
+            z-index: 10;
+            flex-shrink: 0; /* 防止被壓縮 */
+        }
+
+        .camera-lens {
+            width: 50px;
+            height: 50px;
+            background: radial-gradient(circle at 30% 30%, #44d4ff, #005a9e);
+            border-radius: 50%;
+            border: 3px solid white;
+            box-shadow: 0 0 10px rgba(255,255,255,0.5);
+            margin-right: 15px;
+        }
+
+        .indicators { display: flex; gap: 10px; }
+        .led { width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.2); }
+        .led.red { background-color: #ff5555; }
+        .led.yellow { background-color: #ffcc00; }
+        .led.green { background-color: #55ff55; }
+
+        /* 主螢幕區塊 */
+        .screen-container {
+            background-color: #dedede;
+            margin: 15px;
+            padding: 15px;
+            border-radius: 15px 15px 0 0;
+            clip-path: polygon(0 0, 100% 0, 100% 95%, 90% 100%, 0 100%); /* 修正切角 */
+            border: 2px solid #555;
+            flex-grow: 1; /* 佔據剩餘空間 */
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .screen {
+            background-color: var(--screen-bg);
+            border: 2px solid #555;
+            border-radius: 10px;
+            padding: 10px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* 分頁按鈕 */
+        .tab-buttons {
+            display: flex;
+            width: 100%;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #444;
+            flex-shrink: 0;
+        }
+        .tab-btn {
+            flex: 1;
+            background: none;
+            border: none;
+            color: #666;
+            padding: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
         .tab-btn.active { color: #0f0; border-bottom: 2px solid #0f0; background: rgba(0,255,0,0.05); }
 
-        .section { display: none; width: 100%; flex-direction: column; align-items: center; height: 100%; }
+        /* 內容區塊 */
+        .section { display: none; width: 100%; height: 100%; flex-direction: column; align-items: center; }
         .section.active { display: flex; }
 
-        /* 視覺化與結果區 */
-        canvas { width: 100%; height: 80px; background: #000; border: 1px solid #0f0; margin-bottom: 10px; flex-shrink: 0; }
-        .pokemon-display { width: 100%; flex-grow: 1; display: flex; align-items: center; justify-content: center; background: rgba(0,50,0,0.3); border: 1px dashed #0f0; margin: 5px 0; border-radius: 5px; min-height: 150px; position: relative; }
+        /* 視覺化與結果 */
+        canvas { width: 100%; height: 60px; background-color: #000; border: 1px solid #0f0; margin-bottom: 10px; flex-shrink: 0; border-radius: 4px;}
+        
+        .pokemon-display {
+            width: 100%; flex-grow: 1; display: flex; align-items: center; justify-content: center;
+            background-color: rgba(0, 50, 0, 0.3); border-radius: 5px; margin: 5px 0; border: 1px dashed #0f0; position: relative;
+            min-height: 150px;
+        }
         .pokemon-display img { max-width: 90%; max-height: 200px; object-fit: contain; display: none; z-index: 2; filter: drop-shadow(0 0 5px rgba(0,0,0,0.5)); }
+        
         .placeholder-icon { color: #0f0; font-size: 4rem; opacity: 0.3; animation: pulse 2s infinite; }
         @keyframes pulse { 0% { opacity: 0.2; } 50% { opacity: 0.6; } 100% { opacity: 0.2; } }
 
-        .result-box { width: 100%; text-align: center; color: #0f0; font-family: monospace; margin-top: auto; padding: 5px; background: rgba(0,0,0,0.5); border-radius: 4px; }
-        .result-name { font-size: 1.5rem; font-weight: bold; color: #fff; text-shadow: 0 0 5px #0f0; }
+        .result-box {
+            background-color: rgba(0,0,0,0.8); padding: 8px; width: 95%; text-align: center; border: 1px solid #0f0; 
+            margin-top: auto; color: #0f0; font-family: 'Courier New', monospace; border-radius: 4px;
+        }
+        .result-name { font-size: 1.4rem; font-weight: bold; color: #fff; margin: 2px 0; text-shadow: 0 0 5px #0f0;}
+        .result-score { font-size: 0.8rem; color: #aaa; }
 
-        /* 圖鑑網格 */
-        .gallery-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: 100%; overflow-y: auto; padding-bottom: 20px; }
-        .gallery-item { background: rgba(255,255,255,0.05); padding: 5px; border-radius: 5px; cursor: pointer; text-align: center; border: 1px solid transparent; transition: 0.2s; }
-        .gallery-item:hover { border-color: #0f0; background: rgba(0,255,0,0.1); }
-        .gallery-item img { width: 50px; height: 50px; object-fit: contain; }
-        .gallery-name { font-size: 0.7rem; color: #aaa; margin-top: 3px; }
+        /* 資料庫圖鑑 */
+        .gallery-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: 100%;
+            overflow-y: auto; padding-bottom: 20px; 
+        }
+        .gallery-item {
+            display: flex; flex-direction: column; align-items: center;
+            background: rgba(255,255,255,0.05); padding: 5px; border-radius: 5px; cursor: pointer;
+            border: 1px solid transparent; transition: 0.2s;
+        }
+        .gallery-item:hover { border-color: #0f0; background: rgba(0, 255, 0, 0.1); }
+        .gallery-item img { width: 40px; height: 40px; object-fit: contain; }
+        .gallery-name { font-size: 0.7rem; color: #aaa; margin-top: 5px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;}
 
-        /* 控制面板 */
-        .control-panel { padding: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: var(--pokedex-red); flex-shrink: 0; }
-        .btn { border: none; padding: 15px; font-size: 1rem; font-weight: bold; color: white; cursor: pointer; border-radius: 8px; box-shadow: 0 4px 0 rgba(0,0,0,0.3); display: flex; flex-direction: column; align-items: center; }
+        /* 控制面板 (修正按鈕被遮擋問題) */
+        .control-panel {
+            padding: 15px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            background-color: var(--pokedex-red);
+            flex-shrink: 0;
+            
+            /* 2. iOS 底部安全距離修正 */
+            padding-bottom: max(20px, env(safe-area-inset-bottom));
+        }
+
+        .btn {
+            border: none;
+            padding: 15px;
+            font-size: 1rem;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            border-radius: 8px;
+            box-shadow: 0 4px 0 rgba(0,0,0,0.3);
+            display: flex; flex-direction: column; align-items: center;
+            transition: transform 0.1s;
+        }
         .btn:active { transform: translateY(4px); box-shadow: none; }
-        .btn-record { background: #2196F3; }
-        .btn-stop { background: #f44336; }
-        .btn:disabled { background: #777; cursor: not-allowed; opacity: 0.7; transform: none; box-shadow: none; }
+        .btn-record { background-color: #2196F3; }
+        .btn-stop { background-color: #f44336; }
+        .btn:disabled { background-color: #777; cursor: not-allowed; opacity: 0.6; transform: none; box-shadow: none;}
 
-        #loadingOverlay { position: absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:20; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#0f0; font-family:monospace; }
+        /* Loading Overlay */
+        #loadingOverlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 20; color: #0f0;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-family: 'Courier New', monospace; text-align: center;
+        }
+        .start-btn { margin-top: 20px; padding: 10px 25px; background: #0f0; color: #000; border: none; border-radius:50px; font-weight: bold; font-size:1.1rem; cursor: pointer; display: none; box-shadow: 0 0 15px #0f0;}
     </style>
 </head>
 <body>
@@ -57,11 +195,10 @@
 <div class="pokedex-container">
     <div class="top-bar">
         <div class="camera-lens"></div>
-        <div style="flex-grow:1"></div>
-        <div style="display:flex; gap:5px">
-            <div style="width:10px; height:10px; background:red; border-radius:50%"></div>
-            <div style="width:10px; height:10px; background:yellow; border-radius:50%"></div>
-            <div style="width:10px; height:10px; background:#0f0; border-radius:50%"></div>
+        <div class="indicators">
+            <div class="led red"></div>
+            <div class="led yellow"></div>
+            <div class="led green"></div>
         </div>
     </div>
 
@@ -70,25 +207,25 @@
             <div id="loadingOverlay">
                 <i class="fas fa-satellite-dish fa-spin fa-2x" style="margin-bottom:15px"></i>
                 <div id="loadingText">初始化系統...</div>
-                <button onclick="startSystem()" id="startBtn" style="margin-top:20px; padding:10px 20px; background:#0f0; border:none; border-radius:5px; font-weight:bold; cursor:pointer; display:none;">
-                    啟動辨識系統
+                <button id="startSystemBtn" class="start-btn" onclick="startSystem()">
+                    <i class="fas fa-power-off"></i> 啟動系統
                 </button>
             </div>
 
             <div class="tab-buttons">
                 <button class="tab-btn active" onclick="switchTab('scan')">聲紋比對</button>
-                <button class="tab-btn" onclick="switchTab('gallery')">聲音資料庫</button>
+                <button class="tab-btn" onclick="switchTab('gallery')">資料庫圖鑑</button>
             </div>
 
             <div id="scanSection" class="section active">
                 <canvas id="visualizer"></canvas>
                 <div class="pokemon-display">
                     <i class="fas fa-fingerprint placeholder-icon" id="placeholderIcon"></i>
-                    <img id="pokemonImg" src="">
+                    <img id="pokemonImg" src="" alt="Pokemon">
                 </div>
                 <div class="result-box">
                     <div class="result-name" id="matchName">---</div>
-                    <div style="font-size:0.8rem; color:#aaa" id="matchScore">請長按下方按鈕錄音</div>
+                    <div class="result-score" id="matchScore">請按下錄音</div>
                 </div>
             </div>
 
@@ -103,21 +240,21 @@
             <i class="fas fa-microphone fa-lg"></i><br>錄音
         </button>
         <button class="btn btn-stop" id="btnStop" disabled onclick="stopRecording()">
-            <i class="fas fa-stop fa-lg"></i><br>放開
+            <i class="fas fa-stop fa-lg"></i><br>停止
         </button>
     </div>
 </div>
 
 <script>
     // ==========================================
-    // ⚙️ 設定參數
+    // ⚙️ V4.0 設定參數
     // ==========================================
     const CONFIG = {
-        audioExt: '.opus',    // 聲音檔副檔名
-        imgExt: '.png',      // 圖片檔副檔名
+        audioExt: '.opus',    // 聲音檔格式
+        imgExt: '.png',      // 圖片檔格式
         fftSize: 1024,       // 解析度
-        timeSlices: 30,      // 將聲音切成 30 個時間片段 (Time Normalization)
-        freqBands: 32,       // 將頻率切成 32 個區間 (Frequency Binning)
+        timeSlices: 30,      // 時間切片數量 (圖像化寬度)
+        freqBands: 32,       // 頻率區間數量 (圖像化高度)
         silenceThresh: 0.02, // 靜音過濾門檻
         minDuration: 0.2     // 最小有效秒數
     };
@@ -125,89 +262,102 @@
     // ==========================================
     // 🚀 全域變數
     // ==========================================
-    let audioCtx;
+    let audioContext;
     let database = []; // {name, buffer, signature}
     let mediaRecorder;
     let audioChunks = [];
-    let analyser, dataArray, animId;
-    let isStarted = false;
+    let analyser;
+    let dataArray;
+    let animationId;
+    let isSystemStarted = false;
 
-    // DOM
+    // DOM Elements
     const ui = {
-        loadOverlay: document.getElementById('loadingOverlay'),
+        overlay: document.getElementById('loadingOverlay'),
         loadText: document.getElementById('loadingText'),
-        startBtn: document.getElementById('startBtn'),
+        startBtn: document.getElementById('startSystemBtn'),
         matchName: document.getElementById('matchName'),
         matchScore: document.getElementById('matchScore'),
         img: document.getElementById('pokemonImg'),
         icon: document.getElementById('placeholderIcon'),
-        canvas: document.getElementById('visualizer')
+        canvas: document.getElementById('visualizer'),
+        btnRec: document.getElementById('btnRecord'),
+        btnStop: document.getElementById('btnStop')
     };
 
-    // --- 1. 初始化程序 ---
+    // --- 1. 自動讀取清單 (Page Load) ---
     document.addEventListener('DOMContentLoaded', async () => {
         try {
-            // 讀取清單
-            const res = await fetch('list.txt?t=' + Date.now());
-            if(!res.ok) throw new Error("缺少 list.txt");
-            const txt = await res.text();
-            const list = txt.split(/\r?\n/).filter(line => line.trim());
-
-            // 建立空資料結構
-            database = list.map(name => ({ name: name.trim(), buffer: null, signature: null }));
+            // 加入時間戳記避免 list.txt 被快取
+            const response = await fetch('list.txt?nocache=' + Date.now());
+            if (!response.ok) throw new Error("找不到 list.txt");
             
-            // 渲染圖鑑
+            const text = await response.text();
+            const list = text.split(/\r?\n/).filter(line => line.trim() !== "");
+
+            // 建立基礎資料結構
+            database = list.map(name => ({ 
+                name: name.trim(), 
+                buffer: null, 
+                signature: null 
+            }));
+            
             renderGallery();
             
-            ui.loadText.innerHTML = `已讀取 ${list.length} 隻寶可夢<br>準備就緒`;
+            ui.loadText.innerHTML = `已讀取 ${list.length} 筆資料<br>請點擊啟動`;
             document.querySelector('.fa-spin').style.display = 'none';
             ui.startBtn.style.display = 'inline-block';
-        } catch (e) {
-            ui.loadText.innerText = "錯誤: " + e.message;
+
+        } catch (err) {
+            ui.loadText.innerText = "❌ 錯誤: " + err.message;
         }
     });
 
+    // --- 2. 啟動 AudioContext 並分析資料 ---
     async function startSystem() {
         ui.startBtn.style.display = 'none';
-        ui.loadText.innerText = "正在分析聲紋結構 (運算中)...";
+        ui.loadText.innerText = "正在建立聲紋特徵庫...";
         document.querySelector('.fa-spin').style.display = 'inline-block';
-
+        
         try {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
             
-            let loaded = 0;
-            for(let item of database) {
+            let loadedCount = 0;
+            for (let item of database) {
                 try {
                     const res = await fetch(`wav/${item.name}${CONFIG.audioExt}`);
                     if(res.ok) {
                         const buf = await res.arrayBuffer();
-                        item.buffer = await audioCtx.decodeAudioData(buf);
-                        // 🔥 產生結構特徵 (Signature)
+                        item.buffer = await audioContext.decodeAudioData(buf);
+                        // 🔥 產生結構矩陣特徵
                         item.signature = await generateAudioSignature(item.buffer);
-                        loaded++;
-                        ui.loadText.innerText = `分析中 (${loaded}/${database.length}): ${item.name}`;
+                        loadedCount++;
+                        ui.loadText.innerText = `分析中 (${loadedCount}/${database.length}):\n${item.name}`;
                     }
-                } catch(err) { console.error(item.name, err); }
+                } catch (e) { console.warn(e); }
             }
-            
-            ui.loadOverlay.style.display = 'none';
-            document.getElementById('btnRecord').disabled = false;
-            isStarted = true;
-        } catch(err) {
-            alert("AudioContext Error: " + err);
+
+            // 完成
+            ui.overlay.style.display = 'none';
+            ui.btnRec.disabled = false;
+            isSystemStarted = true;
+
+        } catch (err) {
+            alert("系統啟動失敗: " + err);
+            ui.startBtn.style.display = 'inline-block';
         }
     }
 
-    // --- 2. 核心演算法: 聲紋矩陣 (Spectrogram Signature) ---
+    // --- 3. 核心演算法: 聲紋矩陣 (Spectrogram Signature) ---
     
-    // 步驟 A: 切除靜音
+    // A. 靜音切除
     function trimSilence(buffer) {
         const raw = buffer.getChannelData(0);
         let start = 0, end = raw.length - 1;
         while (start < end && Math.abs(raw[start]) < CONFIG.silenceThresh) start++;
         while (end > start && Math.abs(raw[end]) < CONFIG.silenceThresh) end--;
         
-        if (end - start < buffer.sampleRate * CONFIG.minDuration) return buffer; // 太短就不切了
+        if (end - start < buffer.sampleRate * CONFIG.minDuration) return buffer;
         
         const newLen = end - start + 1;
         const ctx = new OfflineAudioContext(1, newLen, buffer.sampleRate);
@@ -216,79 +366,65 @@
         return newBuf;
     }
 
-    // 步驟 B: 產生 2D 特徵矩陣
+    // B. 產生 2D 特徵矩陣
     async function generateAudioSignature(audioBuffer) {
-        // 1. 去頭去尾
         const trimmed = trimSilence(audioBuffer);
         
-        // 2. 離線運算頻譜
+        // 離線運算
         const ctx = new OfflineAudioContext(1, trimmed.length, trimmed.sampleRate);
         const source = ctx.createBufferSource();
         source.buffer = trimmed;
         
         const analyser = ctx.createAnalyser();
         analyser.fftSize = CONFIG.fftSize;
-        analyser.smoothingTimeConstant = 0.1; // 稍微平滑一點
+        analyser.smoothingTimeConstant = 0.1;
         
         source.connect(analyser);
         analyser.connect(ctx.destination);
         source.start(0);
 
-        // 3. 我們需要「時間軸正規化」：無論長短，都取 30 個特徵點
+        // 時間軸正規化：強制取固定數量的特徵點
         const duration = trimmed.duration;
         const interval = duration / CONFIG.timeSlices;
-        const signature = []; // 這將是一個 30 x 32 的二維陣列
+        const signature = []; 
 
-        // 預先安排排程來抓取資料
-        // Web Audio API 的 Offline Context 無法即時 callback，
-        // 但我們可以利用 ScriptProcessor (舊) 或 AudioWorklet (新)。
-        // 為了相容與簡單，我們用一種簡單的 hack: 
-        // 實際上，OfflineContext render 完後我們拿不到中間的 analyser data。
-        // 所以，我們必須針對「每個時間切片」都跑一次 suspend/resume (標準做法)。
-
-        // 設定時間檢查點
         for (let i = 0; i < CONFIG.timeSlices; i++) {
             const t = i * interval;
-            // 避開最後一瞬間，以免沒數據
             const safeT = Math.min(t, duration - 0.001); 
             
             ctx.suspend(safeT).then(() => {
                 const fftData = new Uint8Array(analyser.frequencyBinCount);
                 analyser.getByteFrequencyData(fftData);
                 
-                // 壓縮頻率：將 512 個頻率點濃縮成 32 個頻段 (Mel-like Log Scale)
+                // 頻率壓縮 (Binning)
                 const bands = new Float32Array(CONFIG.freqBands).fill(0);
+                const binSize = Math.floor(fftData.length / CONFIG.freqBands);
+                
                 for(let b = 0; b < CONFIG.freqBands; b++) {
-                    // 簡單的線性或對數分組，這裡用簡單的線性分組示範 (低頻權重高)
-                    // 為了抓電子音，我們關注中高頻
-                    const startBin = Math.floor(b * (fftData.length / CONFIG.freqBands));
-                    const endBin = Math.floor((b + 1) * (fftData.length / CONFIG.freqBands));
                     let sum = 0;
-                    for(let k = startBin; k < endBin; k++) {
-                        sum += fftData[k];
+                    for(let k = 0; k < binSize; k++) {
+                         // 取稍微高一點的頻段，避開低頻噪音
+                         const idx = b * binSize + k;
+                         if(idx < fftData.length) sum += fftData[idx];
                     }
-                    bands[b] = sum / (endBin - startBin);
+                    bands[b] = sum / binSize;
                 }
-                signature.push(bands); // 存入一個時間點的特徵
+                signature.push(bands);
             }).then(() => ctx.resume());
         }
 
         await ctx.startRendering();
-        
-        // 正規化矩陣數值 (讓所有數值落在 0~1 之間)
         return normalizeSignature(signature);
     }
 
-    // 步驟 C: 矩陣歸一化
+    // C. 矩陣正規化
     function normalizeSignature(sig) {
         let maxVal = 0;
-        // 找最大值
         for(let t=0; t<sig.length; t++) {
             for(let f=0; f<sig[t].length; f++) {
                 if(sig[t][f] > maxVal) maxVal = sig[t][f];
             }
         }
-        // 除以最大值
         if(maxVal > 0) {
             for(let t=0; t<sig.length; t++) {
                 for(let f=0; f<sig[t].length; f++) {
@@ -299,23 +435,17 @@
         return sig;
     }
 
-    // --- 3. 比對演算法: 矩陣相似度 (Matrix Similarity) ---
+    // --- 4. 比對邏輯 ---
     function compareSignatures(sigA, sigB) {
-        if(!sigA || !sigB || sigA.length === 0 || sigB.length === 0) return 0;
-
-        // 因為我們強制正規化時間成 30 個切片，所以 sigA 和 sigB 的維度是一樣的 (30 x 32)
-        // 使用 餘弦相似度 (Cosine Similarity) 計算兩個「展開後的大向量」
+        if(!sigA || !sigB) return 0;
         
         let dot = 0, normA = 0, normB = 0;
         
         for(let t=0; t<CONFIG.timeSlices; t++) {
-            // 如果比對的來源長度不足 (防呆)
             if(!sigA[t] || !sigB[t]) continue;
-
             for(let f=0; f<CONFIG.freqBands; f++) {
                 const valA = sigA[t][f];
                 const valB = sigB[t][f];
-                
                 dot += valA * valB;
                 normA += valA * valA;
                 normB += valB * valB;
@@ -326,77 +456,79 @@
         return dot / (Math.sqrt(normA) * Math.sqrt(normB));
     }
 
-    // --- 4. 錄音與互動邏輯 ---
+    // --- 5. 錄音控制 ---
     async function startRecording() {
         switchTab('scan');
         ui.matchName.innerText = "聆聽中...";
         ui.matchScore.innerText = "...";
         ui.img.style.display = 'none';
         ui.icon.style.display = 'block';
-        
+
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaRecorder = new MediaRecorder(stream);
             audioChunks = [];
-            
+
             // 視覺化
-            const src = audioCtx.createMediaStreamSource(stream);
-            analyser = audioCtx.createAnalyser();
+            const source = audioContext.createMediaStreamSource(stream);
+            analyser = audioContext.createAnalyser();
             analyser.fftSize = 256;
-            src.connect(analyser);
+            source.connect(analyser);
             dataArray = new Uint8Array(analyser.frequencyBinCount);
             drawVisualizer();
 
-            mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+            mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
+            
             mediaRecorder.onstop = async () => {
-                cancelAnimationFrame(animId);
-                stream.getTracks().forEach(t => t.stop());
+                cancelAnimationFrame(animationId);
+                stream.getTracks().forEach(track => track.stop());
                 
-                // 處理錄音
                 const blob = new Blob(audioChunks, { type: 'audio/webm' });
-                const buf = await audioCtx.decodeAudioData(await blob.arrayBuffer());
+                const buf = await audioContext.decodeAudioData(await blob.arrayBuffer());
+                
                 analyzeInput(buf);
             };
 
             mediaRecorder.start();
-            document.getElementById('btnRecord').disabled = true;
-            document.getElementById('btnStop').disabled = false;
-        } catch(e) { alert("Mic Error: " + e); }
+            ui.btnRec.disabled = true;
+            ui.btnStop.disabled = false;
+
+        } catch (err) { alert("無法存取麥克風: " + err); }
     }
 
     function stopRecording() {
-        if(mediaRecorder && mediaRecorder.state !== 'inactive') {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
             mediaRecorder.stop();
-            document.getElementById('btnRecord').disabled = false;
-            document.getElementById('btnStop').disabled = true;
+            ui.btnRec.disabled = false;
+            ui.btnStop.disabled = true;
         }
     }
 
     async function analyzeInput(inputBuffer) {
-        ui.matchName.innerText = "比對頻譜結構...";
+        ui.matchName.innerText = "分析運算中...";
         
-        // 產生錄音的特徵
         const inputSig = await generateAudioSignature(inputBuffer);
         
         let bestMatch = null;
         let bestScore = -1;
 
-        for(let item of database) {
+        for (let item of database) {
             const score = compareSignatures(inputSig, item.signature);
-            if(score > bestScore) {
+            if (score > bestScore) {
                 bestScore = score;
                 bestMatch = item;
             }
         }
 
         // 顯示結果
-        // 結構比對的相似度通常會比單純頻譜平均低一點，所以門檻設 0.65 左右
         const pct = (bestScore * 100).toFixed(1);
         
-        if(bestScore > 0.65) {
+        // V4.0 結構比對通常 0.65 以上就是很像了
+        if (bestScore > 0.65) {
             ui.matchName.innerText = bestMatch.name;
             ui.matchName.style.color = "#0f0";
-            ui.matchScore.innerText = `結構相似度: ${pct}%`;
+            ui.matchScore.innerText = `聲紋相似度: ${pct}%`;
+            
             ui.img.src = `pic/${bestMatch.name}${CONFIG.imgExt}`;
             ui.img.onload = () => { ui.img.style.display='block'; ui.icon.style.display='none'; };
             ui.img.onerror = () => { ui.img.style.display='none'; ui.icon.style.display='block'; };
@@ -404,20 +536,20 @@
             ui.matchName.innerText = "無法辨識";
             ui.matchName.style.color = "#888";
             ui.matchScore.innerText = `最高相似: ${bestMatch ? bestMatch.name : '?'} (${pct}%)`;
-            ui.img.style.display='none'; 
-            ui.icon.style.display='block';
+            ui.img.style.display='none'; ui.icon.style.display='block';
         }
     }
 
-    // --- UI 輔助 ---
-    function switchTab(t) {
+    // --- UI 輔助功能 ---
+    function switchTab(mode) {
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-        if(t==='scan') {
-            document.querySelectorAll('.tab-btn')[0].classList.add('active');
+        
+        if (mode === 'scan') {
+            document.querySelector("button[onclick=\"switchTab('scan')\"]").classList.add('active');
             document.getElementById('scanSection').classList.add('active');
         } else {
-            document.querySelectorAll('.tab-btn')[1].classList.add('active');
+            document.querySelector("button[onclick=\"switchTab('gallery')\"]").classList.add('active');
             document.getElementById('gallerySection').classList.add('active');
         }
     }
@@ -426,40 +558,49 @@
         const grid = document.getElementById('galleryGrid');
         grid.innerHTML = '';
         database.forEach(item => {
-            const el = document.createElement('div');
-            el.className = 'gallery-item';
-            el.innerHTML = `
+            const div = document.createElement('div');
+            div.className = 'gallery-item';
+            div.innerHTML = `
                 <img src="pic/${item.name}${CONFIG.imgExt}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iIzQ0NCIgZD0iTTEyIDJDMiAyIDIgMTIgMiAxMnMyIDEwIDEwIDEwIDEwLTEwIDEwLTEwUzIyIDIgMTIgMnptMCAxOGMtNC40MSAwLTgtMy41OS04LThzMy41OS04IDgtOCA4IDMuNTkgOCA4LTMuNTkgOCA4IDh6Ii8+PC9zdmc+'">
                 <div class="gallery-name">${item.name}</div>
             `;
-            el.onclick = () => playSound(item);
-            grid.appendChild(el);
+            div.onclick = () => playSample(item);
+            grid.appendChild(div);
         });
     }
 
-    function playSound(item) {
-        if(!isStarted || !item.buffer) return;
-        const src = audioCtx.createBufferSource();
-        src.buffer = item.buffer;
-        src.connect(audioCtx.destination);
-        src.start(0);
+    function playSample(item) {
+        if (!isSystemStarted) {
+            alert("請先啟動系統");
+            return;
+        }
+        if (!item.buffer) {
+            alert("此音檔載入失敗");
+            return;
+        }
+        const source = audioContext.createBufferSource();
+        source.buffer = item.buffer;
+        source.connect(audioContext.destination);
+        source.start(0);
     }
 
     function drawVisualizer() {
-        animId = requestAnimationFrame(drawVisualizer);
+        animationId = requestAnimationFrame(drawVisualizer);
         analyser.getByteFrequencyData(dataArray);
         const ctx = ui.canvas.getContext('2d');
-        ctx.fillStyle = '#000'; ctx.fillRect(0,0,ui.canvas.width,ui.canvas.height);
-        const barW = (ui.canvas.width / dataArray.length) * 2.5;
+        const w = ui.canvas.width;
+        const h = ui.canvas.height;
+        ctx.fillStyle = '#000'; ctx.fillRect(0,0,w,h);
+        
+        const barW = (w / dataArray.length) * 2.5;
         let x = 0;
         for(let i=0; i<dataArray.length; i++) {
-            const h = (dataArray[i]/255)*ui.canvas.height;
-            ctx.fillStyle = `hsl(${i/dataArray.length*120}, 100%, 50%)`;
-            ctx.fillRect(x, ui.canvas.height-h, barW, h);
-            x += barW+1;
+            const barH = (dataArray[i]/255)*h;
+            ctx.fillStyle = `hsl(${i/dataArray.length*120}, 100%, 50%)`; // 彩色頻譜
+            ctx.fillRect(x, h-barH, barW, barH);
+            x += barW + 1;
         }
     }
-
 </script>
 </body>
 </html>
