@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>寶可夢科技圖鑑 V9.1</title>
+    <title>寶可夢科技圖鑑 V10.0 (官方風格)</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         :root {
             --pokedex-red: #dc0a2d;
             --pokedex-dark-red: #8b0000;
-            --screen-bg: #111; /* 背景改深，凸顯光效 */
+            --screen-bg: #111; /* 極深背景，凸顯光環 */
             --ui-green: #4dad5b;
-            --ui-cyan: #30a7d7;
+            --ui-cyan: #30a7d7; /* 官方風格主色調 */
             --text-color: #f0f0f0;
         }
 
@@ -81,10 +81,11 @@
             margin-bottom: max(15px, env(safe-area-inset-bottom));
         }
 
-        /* ========= 1. 上半部：大圖顯示區 (官方風格背景) ========= */
+        /* ========= 1. 上半部：大圖顯示區 ========= */
         .display-area {
-            background-color: var(--screen-bg);
-            flex: 1; /* 自動填滿剩餘高度 */
+            /* 使用徑向漸層製造一點暗角深度 */
+            background: radial-gradient(circle at center, #222 0%, var(--screen-bg) 100%);
+            flex: 1;
             min-height: 0;
             border-bottom: 3px solid var(--ui-cyan);
             display: flex;
@@ -93,53 +94,17 @@
             justify-content: flex-start;
             position: relative;
             padding: 10px;
-            overflow: hidden; /* 關鍵：裁切掉超出的旋轉背景 */
-        }
-
-        /* 🔥 動態放射背景 (Dynamic Starburst) */
-        .dynamic-bg {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 200%; /* 放大以覆蓋旋轉死角 */
-            height: 200%;
-            transform: translate(-50%, -50%);
-            z-index: 0;
-            
-            /* 模擬官方的放射線效果 */
-            background: repeating-conic-gradient(
-                from 0deg,
-                rgba(48, 167, 215, 0.05) 0deg 10deg, /* 淺藍色光束 */
-                rgba(0, 0, 0, 0) 10deg 20deg       /* 透明間隔 */
-            );
-            
-            animation: rotateBg 60s linear infinite; /* 緩慢旋轉 */
-        }
-
-        /* 🔥 中央聚光燈 (Spotlight Overlay) */
-        .spotlight-overlay {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 1;
-            /* 中央亮，四周暗，製造景深 */
-            background: radial-gradient(circle at center, rgba(48, 167, 215, 0.15) 0%, rgba(17, 17, 17, 0.8) 80%);
-            pointer-events: none;
-        }
-
-        @keyframes rotateBg {
-            from { transform: translate(-50%, -50%) rotate(0deg); }
-            to { transform: translate(-50%, -50%) rotate(360deg); }
+            overflow: hidden;
         }
 
         /* 標題資訊 */
         .tech-info-box {
             text-align: center;
             margin-bottom: 5px;
-            z-index: 5;
+            z-index: 10; /* 確保在最上層 */
             text-shadow: 0 0 8px rgba(0,0,0,0.8);
             flex-shrink: 0;
             width: 100%;
-            position: relative; /* 確保在背景之上 */
         }
 
         .tech-id {
@@ -159,7 +124,7 @@
             text-shadow: 0 0 10px var(--ui-cyan), 0 0 20px var(--ui-cyan);
         }
 
-        /* 圖片容器 */
+        /* 圖片與背景元素的容器 (置中對齊用) */
         .img-container {
             position: relative;
             width: 100%;
@@ -169,21 +134,65 @@
             justify-content: center;
             align-items: center;
             overflow: visible;
-            z-index: 2; /* 確保圖片在背景之上 */
+        }
+
+        /* 🔥 V10.0 核心：官方風格背景元素 🔥 */
+
+        /* 1. 中央實心藍圓 */
+        .portal-circle {
+            position: absolute;
+            height: 80%; /* 控制藍圓大小 */
+            aspect-ratio: 1 / 1;
+            border-radius: 50%;
+            background-color: var(--ui-cyan);
+            box-shadow: 0 0 30px rgba(48, 167, 215, 0.6); /* 強烈發光 */
+            z-index: 1; /* 在光環前面，圖片後面 */
+        }
+
+        /* 2. 旋轉光環通用設定 */
+        .portal-ring {
+            position: absolute;
+            aspect-ratio: 1 / 1;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.4); /* 半透明白線 */
+            z-index: 0; /* 在最底層 */
+        }
+
+        /* 內層光環 (實線，慢速順時針) */
+        .ring-inner {
+            height: 90%;
+            border-width: 2px;
+            animation: spinSlow 25s linear infinite;
+        }
+
+        /* 外層光環 (虛線，更慢速逆時針) */
+        .ring-outer {
+            height: 100%; /* 最大圈 */
+            border-width: 1px;
+            border-style: dashed; /* 虛線增加科技感 */
+            opacity: 0.7;
+            animation: spinSlow 40s linear infinite reverse;
+        }
+
+        @keyframes spinSlow {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
         }
 
         /* 寶可夢圖片 */
         .pokemon-img {
-            max-width: 85%;
-            max-height: 80%; /* 稍微放大一點，因為背景現在比較乾淨 */
+            max-width: 88%;
+            max-height: 88%;
             object-fit: contain;
-            filter: drop-shadow(0 0 15px rgba(48, 167, 215, 0.3));
+            /* 讓圖片底部有一點藍色反光 */
+            filter: drop-shadow(0 10px 15px rgba(48, 167, 215, 0.5));
             transition: transform 0.2s;
+            z-index: 2; /* 最上層 */
         }
 
         .pokemon-img.playing {
             transform: scale(1.05);
-            filter: drop-shadow(0 0 25px var(--ui-cyan));
+            filter: drop-shadow(0 10px 25px var(--ui-cyan));
         }
 
         .placeholder-text {
@@ -193,7 +202,7 @@
             position: absolute;
             top: 50%; left: 50%;
             transform: translate(-50%, -50%);
-            z-index: 10;
+            z-index: 15;
         }
         @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
 
@@ -320,9 +329,6 @@
         </div>
 
         <div class="display-area" id="displayArea">
-            <div class="dynamic-bg"></div>
-            <div class="spotlight-overlay"></div>
-
             <div class="placeholder-text" id="placeholderText">請選擇目標</div>
             
             <div class="tech-info-box" id="techInfoBox" style="display:none;">
@@ -331,7 +337,7 @@
             </div>
 
             <div class="img-container" id="imgContainer" style="visibility:hidden;">
-                <img id="mainImg" class="pokemon-img" src="">
+                <div class="portal-ring ring-outer"></div> <div class="portal-ring ring-inner"></div> <div class="portal-circle"></div>          <img id="mainImg" class="pokemon-img" src="">
             </div>
         </div>
 
@@ -343,7 +349,7 @@
 
 <script>
     // ==========================================
-    //⚙️ 設定區
+    // ⚙️ 設定區
     // ==========================================
     const CONFIG = {
         audioExt: '.opus',   
