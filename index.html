@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>寶可夢聲紋辨識器 V5.0</title>
+    <title>寶可夢聲紋辨識器 V6.0</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         :root {
@@ -21,9 +21,8 @@
             padding: 0;
             display: flex;
             justify-content: center;
-            /* 關鍵修正：使用 dynamic viewport height 避開手機工具列 */
             height: 100vh;
-            height: 100dvh;
+            height: 100dvh; /* 手機版全螢幕適配 */
             overflow: hidden;
         }
 
@@ -38,7 +37,7 @@
             box-shadow: 0 0 20px rgba(0,0,0,0.5);
         }
 
-        /* --- 頂部偵測列 (Top Bar) --- */
+        /* --- 頂部偵測列 --- */
         .top-bar {
             padding: 15px 20px;
             display: flex;
@@ -46,34 +45,23 @@
             border-bottom: 5px solid var(--pokedex-dark-red);
             box-shadow: 0 4px 5px rgba(0,0,0,0.2);
             z-index: 10;
-            flex-shrink: 0; /* 防止被擠壓 */
+            flex-shrink: 0;
         }
 
         .camera-lens {
-            width: 60px; /* 稍微加大 */
+            width: 60px;
             height: 60px;
             background: radial-gradient(circle at 30% 30%, #44d4ff, #005a9e);
             border-radius: 50%;
             border: 4px solid white;
             box-shadow: 0 0 10px rgba(255,255,255,0.5);
             margin-right: 20px;
-            /* 關鍵修正：強制保持正圓形，不被壓縮 */
             flex-shrink: 0;
             aspect-ratio: 1 / 1; 
         }
 
-        .indicators {
-            display: flex;
-            gap: 10px;
-        }
-
-        .led {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            border: 1px solid rgba(0,0,0,0.2);
-            box-shadow: inset 1px 1px 2px rgba(0,0,0,0.3);
-        }
+        .indicators { display: flex; gap: 10px; }
+        .led { width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.2); }
         .led.red { background-color: #ff5555; }
         .led.yellow { background-color: #ffcc00; }
         .led.green { background-color: #55ff55; }
@@ -82,9 +70,8 @@
         .screen-container {
             background-color: #dedede;
             margin: 15px 20px;
-            padding: 0; /* 移除內距讓螢幕滿版 */
+            padding: 0;
             border-radius: 10px 10px 0 0; 
-            /* 裝飾性切角 */
             clip-path: polygon(0 0, 100% 0, 100% 95%, 90% 100%, 0 100%);
             border: 2px solid #555;
             flex-grow: 1;
@@ -133,17 +120,10 @@
             border-bottom: 3px solid var(--ui-green);
         }
 
-        /* 內容區塊 */
-        .section {
-            display: none;
-            width: 100%;
-            height: 100%;
-            flex-direction: column;
-            align-items: center;
-        }
+        .section { display: none; width: 100%; height: 100%; flex-direction: column; align-items: center; }
         .section.active { display: flex; }
 
-        /* --- 掃描介面 --- */
+        /* --- 掃描顯示區 --- */
         canvas {
             width: 100%;
             height: 80px;
@@ -184,7 +164,6 @@
             opacity: 0.3;
             animation: pulse 2s infinite;
         }
-
         @keyframes pulse { 0% { opacity: 0.2; transform: scale(0.95); } 50% { opacity: 0.6; transform: scale(1.05); } 100% { opacity: 0.2; transform: scale(0.95); } }
 
         .result-box {
@@ -196,113 +175,55 @@
             text-align: left;
             margin-top: auto;
         }
+        .result-name { font-size: 1.4rem; font-weight: bold; color: white; letter-spacing: 1px; }
+        .result-score { font-size: 0.85rem; color: #aaa; margin-top: 3px; }
 
-        .result-name {
-            font-size: 1.4rem;
-            font-weight: bold;
-            color: white;
-            letter-spacing: 1px;
-        }
-        
-        .result-score {
-            font-size: 0.85rem;
-            color: #aaa;
-            margin-top: 3px;
-        }
-
-        /* --- 資料庫介面 (圖鑑) --- */
+        /* --- 資料庫介面 --- */
         .gallery-header {
-            width: 100%;
-            text-align: center;
-            padding: 10px;
-            color: var(--ui-cyan);
-            font-size: 1.2rem;
-            font-weight: bold;
-            border-bottom: 1px solid #444;
-            margin-bottom: 10px;
-            letter-spacing: 2px;
-            text-transform: uppercase;
+            width: 100%; text-align: center; padding: 10px;
+            color: var(--ui-cyan); font-size: 1.2rem; font-weight: bold;
+            border-bottom: 1px solid #444; margin-bottom: 10px; letter-spacing: 2px;
         }
 
         .gallery-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr); /* 手機版改為兩欄較大 */
-            gap: 10px;
-            width: 100%;
-            overflow-y: auto;
-            padding-bottom: 20px;
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
+            width: 100%; overflow-y: auto; padding-bottom: 20px;
         }
 
         .gallery-item {
             background: rgba(255,255,255,0.05);
-            border: 1px solid #444;
-            border-radius: 8px;
-            padding: 10px;
-            display: flex;
-            align-items: center;
-            cursor: pointer;
-            transition: 0.2s;
+            border: 1px solid #444; border-radius: 8px; padding: 10px;
+            display: flex; align-items: center; cursor: pointer; transition: 0.2s;
         }
-
         .gallery-item:active { transform: scale(0.98); background: rgba(255,255,255,0.1); }
         .gallery-item:hover { border-color: var(--ui-cyan); }
 
         .gallery-thumb {
-            width: 40px;
-            height: 40px;
-            object-fit: contain;
-            background: #000;
-            border-radius: 50%;
-            padding: 2px;
-            margin-right: 10px;
-            border: 1px solid #666;
+            width: 40px; height: 40px; object-fit: contain;
+            background: #000; border-radius: 50%; padding: 2px;
+            margin-right: 10px; border: 1px solid #666;
         }
-
-        .gallery-info {
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
+        .gallery-info { display: flex; flex-direction: column; overflow: hidden; }
         .gallery-name { font-size: 0.9rem; color: #fff; font-weight: bold; }
         .gallery-id { font-size: 0.7rem; color: #666; }
 
         /* --- 控制面板 --- */
         .control-panel {
-            padding: 15px 20px;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            background-color: var(--pokedex-red);
-            flex-shrink: 0;
-            /* 關鍵修正：增加底部安全距離，防止按鈕被 Home Bar 擋住 */
+            padding: 15px 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 15px;
+            background-color: var(--pokedex-red); flex-shrink: 0;
             padding-bottom: max(20px, env(safe-area-inset-bottom));
         }
 
         .btn {
-            border: none;
-            padding: 16px;
-            font-size: 1rem;
-            font-weight: bold;
-            color: white;
-            cursor: pointer;
-            border-radius: 30px; /* 改為膠囊狀 */
+            border: none; padding: 16px; font-size: 1rem; font-weight: bold;
+            color: white; cursor: pointer; border-radius: 30px;
             box-shadow: 0 4px 0 rgba(0,0,0,0.3);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            transition: 0.1s;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
         }
-
-        .btn:active {
-            transform: translateY(3px);
-            box-shadow: none;
-        }
-
+        .btn:active { transform: translateY(3px); box-shadow: none; }
         .btn-record { background-color: #2196F3; }
         .btn-stop { background-color: #f44336; }
-        .btn:disabled { background-color: #888; cursor: not-allowed; opacity: 0.6; transform: none; box-shadow: none;}
+        .btn:disabled { background-color: #888; cursor: not-allowed; opacity: 0.6; }
 
         /* Loading */
         #loadingOverlay {
@@ -314,11 +235,8 @@
         .start-btn {
             margin-top: 20px; padding: 12px 25px;
             background: var(--ui-green); color: #000;
-            border: none; border-radius: 25px;
-            font-weight: bold; font-size: 1rem;
-            cursor: pointer;
+            border: none; border-radius: 25px; font-weight: bold; font-size: 1rem; cursor: pointer;
         }
-
     </style>
 </head>
 <body>
@@ -335,7 +253,6 @@
 
     <div class="screen-container">
         <div class="screen">
-            
             <div id="loadingOverlay">
                 <i class="fas fa-circle-notch fa-spin fa-3x"></i>
                 <div id="loadingText" style="margin-top:20px; letter-spacing:1px;">系統初始化...</div>
@@ -351,12 +268,10 @@
 
             <div id="scanSection" class="section active">
                 <canvas id="visualizer"></canvas>
-                
                 <div class="pokemon-display">
                     <i class="fas fa-fingerprint placeholder-icon" id="placeholderIcon"></i>
                     <img id="pokemonImg" src="" alt="Pokemon">
                 </div>
-
                 <div class="result-box">
                     <div class="result-name" id="matchName">準備就緒</div>
                     <div class="result-score" id="matchScore">請長按下方藍色按鈕錄音</div>
@@ -365,17 +280,15 @@
 
             <div id="gallerySection" class="section">
                 <div class="gallery-header">選擇寶可夢</div> 
-                <div class="gallery-grid" id="galleryGrid">
-                    </div>
+                <div class="gallery-grid" id="galleryGrid"></div>
             </div>
-
         </div>
     </div>
 
     <div class="control-panel">
         <button class="btn btn-record" id="btnRecord" disabled 
-            ontouchstart="startRecording()" ontouchend="stopRecording()"
-            onmousedown="startRecording()" onmouseup="stopRecording()">
+            ontouchstart="startRecording(event)" ontouchend="stopRecording(event)"
+            onmousedown="startRecording(event)" onmouseup="stopRecording(event)">
             <i class="fas fa-microphone"></i> 錄音
         </button>
         <button class="btn btn-stop" id="btnStop" disabled onclick="stopRecording()">
@@ -386,19 +299,19 @@
 
 <script>
     // ==========================================
-    // ⚙️ 系統設定
+    // ⚙️ 設定區
     // ==========================================
     const CONFIG = {
-        audioExt: '.opus',    // 聲音檔格式
-        imgExt: '.png',      // 圖片檔格式
-        fftSize: 1024,       // 解析度
-        timeSlices: 30,      // 時間切片數
-        freqBands: 32,       // 頻率區間數
-        silenceThresh: 0.02  // 靜音門檻
+        audioExt: '.opus',    
+        imgExt: '.png',      
+        fftSize: 1024,       
+        timeSlices: 30,      
+        freqBands: 32,       
+        silenceThresh: 0.02  
     };
 
     // ==========================================
-    // 🚀 全域變數
+    // 🚀 核心邏輯
     // ==========================================
     let audioCtx;
     let database = []; 
@@ -407,7 +320,6 @@
     let analyser, dataArray, animId;
     let isStarted = false;
 
-    // DOM Elements
     const ui = {
         overlay: document.getElementById('loadingOverlay'),
         loadText: document.getElementById('loadingText'),
@@ -418,22 +330,18 @@
         icon: document.getElementById('placeholderIcon'),
         canvas: document.getElementById('visualizer'),
         galleryGrid: document.getElementById('galleryGrid'),
-        btnRec: document.getElementById('btnRecord'),
-        btnStop: document.getElementById('btnStop')
+        btnRec: document.getElementById('btnRecord')
     };
 
-    // --- 1. 載入流程 ---
     document.addEventListener('DOMContentLoaded', async () => {
         try {
-            // 讀取 list.txt
             const res = await fetch('list.txt?t=' + Date.now());
             if(!res.ok) throw new Error("缺少 list.txt");
             const txt = await res.text();
             
-            // 建立資料庫索引
             const lines = txt.split(/\r?\n/).filter(line => line.trim());
             database = lines.map((name, index) => ({
-                id: (index + 1).toString().padStart(4, '0'), // 產生編號 0001, 0002...
+                id: (index + 1).toString().padStart(4, '0'),
                 name: name.trim(),
                 buffer: null,
                 signature: null
@@ -444,7 +352,6 @@
             ui.loadText.innerHTML = `讀取完成<br>共 ${database.length} 筆資料`;
             document.querySelector('.fa-spin').style.display = 'none';
             ui.startBtn.style.display = 'inline-block';
-
         } catch (e) {
             ui.loadText.innerText = "錯誤: " + e.message;
         }
@@ -457,7 +364,6 @@
 
         try {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
             let loaded = 0;
             for(let item of database) {
                 try {
@@ -467,32 +373,25 @@
                         item.buffer = await audioCtx.decodeAudioData(buf);
                         item.signature = await generateSignature(item.buffer);
                         loaded++;
-                        ui.loadText.innerText = `分析中 (${loaded}/${database.length})...`;
+                        ui.loadText.innerText = `載入聲音 (${loaded}/${database.length})...`;
                     }
                 } catch(err) { console.warn(item.name, err); }
             }
-            
             ui.overlay.style.display = 'none';
             ui.btnRec.disabled = false;
             isStarted = true;
-
-        } catch(err) {
-            alert("無法啟動 AudioContext: " + err);
-        }
+        } catch(err) { alert("無法啟動音訊系統: " + err); }
     }
 
-    // --- 2. 聲紋演算法 (矩陣特徵) ---
+    // --- 演算法 ---
     function trimSilence(buffer) {
         const raw = buffer.getChannelData(0);
         let start = 0, end = raw.length - 1;
         while(start < end && Math.abs(raw[start]) < CONFIG.silenceThresh) start++;
         while(end > start && Math.abs(raw[end]) < CONFIG.silenceThresh) end--;
-        
         if (end - start < buffer.sampleRate * 0.1) return buffer; 
-        
-        const newLen = end - start + 1;
-        const ctx = new OfflineAudioContext(1, newLen, buffer.sampleRate);
-        const newBuf = ctx.createBuffer(1, newLen, buffer.sampleRate);
+        const ctx = new OfflineAudioContext(1, end - start + 1, buffer.sampleRate);
+        const newBuf = ctx.createBuffer(1, end - start + 1, buffer.sampleRate);
         newBuf.copyToChannel(raw.slice(start, end+1), 0);
         return newBuf;
     }
@@ -502,7 +401,6 @@
         const ctx = new OfflineAudioContext(1, trimmed.length, trimmed.sampleRate);
         const source = ctx.createBufferSource();
         source.buffer = trimmed;
-        
         const analyser = ctx.createAnalyser();
         analyser.fftSize = CONFIG.fftSize;
         source.connect(analyser);
@@ -518,8 +416,6 @@
             ctx.suspend(t).then(() => {
                 const fft = new Uint8Array(analyser.frequencyBinCount);
                 analyser.getByteFrequencyData(fft);
-                
-                // 壓縮頻段 (Binning)
                 const bands = new Float32Array(CONFIG.freqBands);
                 const step = Math.floor(fft.length / CONFIG.freqBands);
                 for(let b=0; b<CONFIG.freqBands; b++) {
@@ -530,14 +426,10 @@
                 signature.push(bands);
             }).then(() => ctx.resume());
         }
-
         await ctx.startRendering();
-        
-        // 矩陣歸一化
         let max = 0;
         signature.forEach(row => row.forEach(v => { if(v>max) max=v; }));
         if(max > 0) signature.forEach(row => row.forEach((v,i) => row[i] = v/max));
-        
         return signature;
     }
 
@@ -556,13 +448,29 @@
         return dot / (Math.sqrt(nA) * Math.sqrt(nB));
     }
 
-    // --- 3. 錄音與互動 ---
-    async function startRecording(e) {
-        if(e) e.preventDefault(); // 防止手機長按選取文字
-        if(!isStarted) return;
+    // --- 互動功能 ---
+    function selectFromGallery(item) {
+        // 1. 播放聲音
+        playSound(item);
         
+        // 2. 切換回主畫面 (因為大圖在主畫面)
         switchTab('scan');
-        ui.btnRec.classList.add('active'); // 視覺回饋
+        
+        // 3. 更新主畫面資訊
+        ui.matchName.innerText = item.name;
+        ui.matchName.style.color = "#30a7d7"; // 藍色代表手動選擇
+        ui.matchScore.innerText = "資料庫檢視模式";
+        
+        // 4. 顯示圖片
+        ui.img.src = `pic/${item.name}${CONFIG.imgExt}`;
+        ui.img.onload = () => { ui.img.style.display='block'; ui.icon.style.display='none'; };
+        ui.img.onerror = () => { ui.img.style.display='none'; ui.icon.style.display='block'; };
+    }
+
+    async function startRecording(e) {
+        if(e && e.cancelable) e.preventDefault();
+        if(!isStarted) return;
+        switchTab('scan');
         ui.btnRec.style.backgroundColor = '#1976D2';
         
         ui.matchName.innerText = "聆聽中...";
@@ -575,7 +483,6 @@
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaRecorder = new MediaRecorder(stream);
             audioChunks = [];
-            
             const src = audioCtx.createMediaStreamSource(stream);
             analyser = audioCtx.createAnalyser();
             analyser.fftSize = 256;
@@ -591,16 +498,14 @@
                 const buf = await audioCtx.decodeAudioData(await blob.arrayBuffer());
                 analyze(buf);
             };
-
             mediaRecorder.start();
         } catch(err) { alert("Mic Error: "+err); }
     }
 
     function stopRecording(e) {
-        if(e) e.preventDefault();
+        if(e && e.cancelable) e.preventDefault();
         if(mediaRecorder && mediaRecorder.state !== 'inactive') {
             mediaRecorder.stop();
-            ui.btnRec.classList.remove('active');
             ui.btnRec.style.backgroundColor = '#2196F3';
         }
     }
@@ -608,18 +513,16 @@
     async function analyze(buf) {
         ui.matchName.innerText = "分析中...";
         const inputSig = await generateSignature(buf);
-        
         let best = null, maxScore = -1;
         for(let item of database) {
             const score = compareSignatures(inputSig, item.signature);
             if(score > maxScore) { maxScore = score; best = item; }
         }
-
         const pct = (maxScore * 100).toFixed(1);
-        if(maxScore > 0.60) { // 門檻
+        if(maxScore > 0.60) {
             ui.matchName.innerText = best.name;
-            ui.matchName.style.color = "#4dad5b"; // Green
-            ui.matchScore.innerText = `相似度: ${pct}%`;
+            ui.matchName.style.color = "#4dad5b";
+            ui.matchScore.innerText = `聲紋相似度: ${pct}%`;
             ui.img.src = `pic/${best.name}${CONFIG.imgExt}`;
             ui.img.onload = () => { ui.img.style.display='block'; ui.icon.style.display='none'; };
         } else {
@@ -629,11 +532,9 @@
         }
     }
 
-    // --- UI 輔助 ---
     function switchTab(mode) {
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-        
         if(mode === 'scan') {
             document.querySelectorAll('.tab-btn')[0].classList.add('active');
             document.getElementById('scanSection').classList.add('active');
@@ -655,7 +556,8 @@
                     <div class="gallery-name">${item.name}</div>
                 </div>
             `;
-            el.onclick = () => playSound(item);
+            // 修正：點擊時呼叫 selectFromGallery
+            el.onclick = () => selectFromGallery(item);
             ui.galleryGrid.appendChild(el);
         });
     }
