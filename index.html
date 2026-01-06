@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>寶可夢電子圖鑑</title>
+    <title>寶可夢電子圖鑑 (自動啟動版)</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         :root {
@@ -195,11 +195,8 @@
             background: rgba(0,0,0,0.95); z-index: 20; color: #0f0;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             font-family: monospace; text-align: center;
+            transition: opacity 0.5s ease;
         }
-        .start-btn { margin-top: 20px; padding: 12px 30px; background: #0f0; color: #000; border: none; border-radius: 50px; font-weight: bold; font-size: 1.2rem; cursor: pointer; box-shadow: 0 0 15px #0f0; animation: pulse 2s infinite;}
-        
-        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(0, 255, 0, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(0, 255, 0, 0); } 100% { box-shadow: 0 0 0 0 rgba(0, 255, 0, 0); } }
-
     </style>
 </head>
 <body>
@@ -219,9 +216,6 @@
             <div id="loadingOverlay">
                 <i class="fas fa-compact-disc fa-spin fa-3x" style="margin-bottom:20px"></i>
                 <div id="loadingText">讀取資料庫...</div>
-                <button id="startBtn" class="start-btn" onclick="startApp()" style="display:none">
-                    <i class="fas fa-power-off"></i> 啟動圖鑑
-                </button>
             </div>
 
             <div class="display-area">
@@ -252,15 +246,14 @@
     // ==========================================
     // 🚀 全域變數
     // ==========================================
-    let audioCtx;
+    let audioCtx = null; // 延遲初始化
     let database = []; // {name}
-    let currentSource = null; // 當前播放的音源
+    let currentSource = null;
 
     // DOM Elements
     const ui = {
         overlay: document.getElementById('loadingOverlay'),
         text: document.getElementById('loadingText'),
-        startBtn: document.getElementById('startBtn'),
         img: document.getElementById('mainImg'),
         name: document.getElementById('mainName'),
         placeholder: document.getElementById('placeholder'),
@@ -279,39 +272,29 @@
             // 存入資料庫
             database = names.map(n => ({ name: n.trim() }));
             
-            // 預先渲染列表 (此時點擊還不會有聲音，因為 AudioContext 未啟動)
+            // 渲染列表
             renderList();
 
-            ui.text.innerHTML = `已讀取 ${names.length} 隻寶可夢`;
-            document.querySelector('.fa-spin').style.display = 'none';
-            ui.startBtn.style.display = 'inline-block';
+            // 🔥 自動完成：延遲 0.5 秒後淡出遮罩
+            setTimeout(() => {
+                ui.text.innerHTML = `已讀取 ${names.length} 隻寶可夢`;
+                ui.overlay.style.opacity = '0';
+                setTimeout(() => { ui.overlay.style.display = 'none'; }, 500);
+            }, 500);
 
         } catch (err) {
             ui.text.innerText = "錯誤: " + err.message;
         }
     });
 
-    // 2. 啟動應用 (解決 iOS 音訊鎖定)
-    function startApp() {
-        // 初始化 AudioContext
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        
-        // 隱藏 Loading
-        ui.overlay.style.opacity = '0';
-        setTimeout(() => {
-            ui.overlay.style.display = 'none';
-        }, 500);
-    }
-
-    // 3. 渲染列表
+    // 2. 渲染列表
     function renderList() {
         ui.list.innerHTML = '';
         database.forEach((item, index) => {
             const div = document.createElement('div');
             div.className = 'poke-item';
-            div.dataset.index = index; // 用於標記
+            div.dataset.index = index;
             
-            // 小圖示 + 名字
             div.innerHTML = `
                 <img class="poke-icon" src="pic/${item.name}${CONFIG.imgExt}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iIzY2NiIgZD0iTTEyIDJDMiAyIDIgMTIgMiAxMnMyIDEwIDEwIDEwIDEwLTEwIDEwLTEwUzIyIDIgMTIgMnptMCAxOGMtNC40MSAwLTgtMy41OS04LThzMy41OS04IDgtOCA4IDMuNTkgOCA4LTMuNTkgOCA4IDh6Ii8+PC9zdmc+'">
                 <div class="poke-label">${item.name}</div>
@@ -322,9 +305,16 @@
         });
     }
 
-    // 4. 選擇寶可夢 (播放聲音 + 顯示大圖)
+    // 3. 選擇寶可夢 (播放聲音 + 顯示大圖)
     async function selectPokemon(item, element) {
-        if (!audioCtx) return; // 防呆
+        // 🔥 自動啟動核心：在第一次點擊時初始化 AudioContext
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        // 如果被瀏覽器暫停 (Suspended)，則強制恢復
+        if (audioCtx.state === 'suspended') {
+            await audioCtx.resume();
+        }
 
         // UI 更新
         document.querySelectorAll('.poke-item').forEach(el => el.classList.remove('active'));
@@ -332,7 +322,7 @@
 
         // 顯示大圖
         ui.placeholder.style.display = 'none';
-        ui.img.style.display = 'none'; // 重置動畫
+        ui.img.style.display = 'none'; 
         ui.img.src = `pic/${item.name}${CONFIG.imgExt}`;
         ui.img.onload = () => { ui.img.style.display = 'block'; };
         ui.img.onerror = () => { ui.placeholder.style.display = 'block'; ui.placeholder.innerHTML = "無圖片"; };
@@ -347,9 +337,6 @@
 
         // 播放聲音
         try {
-            // 恢復 AudioContext (如果被系統暫停)
-            if (audioCtx.state === 'suspended') await audioCtx.resume();
-
             const res = await fetch(`wav/${item.name}${CONFIG.audioExt}`);
             if (res.ok) {
                 const buf = await res.arrayBuffer();
