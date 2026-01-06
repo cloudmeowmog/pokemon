@@ -3,14 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>寶可夢電子圖鑑 (自動啟動版)</title>
+    <title>寶可夢電子圖鑑 (宇宙科技版)</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         :root {
+            /* 原本的變數 */
             --pokedex-red: #dc0a2d;
             --pokedex-dark-red: #8b0000;
             --screen-bg: #232323;
-            --ui-blue: #2196F3;
+            /* ✨ 新增：宇宙科技風主題色 ✨ */
+            --cosmic-blue: #00f7ff; /* 發光的青藍色 */
+            --cosmic-dark: #0a0a1a; /* 深邃宇宙藍 */
+            --cosmic-glow: rgba(0, 247, 255, 0.5); /* 發光效果 */
         }
 
         body {
@@ -92,26 +96,68 @@
             overflow: hidden;
         }
 
-        /* 上半部：大圖顯示區 */
+        /* =========================================
+           ✨ 全新設計的展示區 (Display Area) ✨
+           ========================================= */
         .display-area {
             width: 100%;
-            height: 45%; /* 佔據上半部 */
+            height: 50%; /* 稍微加大高度比例 */
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            border-bottom: 1px dashed #555;
-            margin-bottom: 10px;
             position: relative;
+            overflow: hidden; /* 隱藏超出的發光效果 */
+            
+            /* 深邃宇宙背景 */
+            background: radial-gradient(circle at center, #1a1a3a 0%, var(--cosmic-dark) 80%);
+            border-bottom: 2px solid var(--cosmic-blue); /* 底部邊框改為發光藍 */
+            box-shadow: inset 0 0 20px var(--cosmic-dark);
+            margin-bottom: 10px;
+            border-radius: 5px; /* 稍微圓角 */
+        }
+
+        /* 利用偽元素製作發光圓環 - 外圈 */
+        .display-area::before {
+            content: '';
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 85%; height: 85%; /* 圓環大小 */
+            border-radius: 50%;
+            border: 2px solid var(--cosmic-blue);
+            box-shadow: 0 0 15px var(--cosmic-glow), inset 0 0 15px var(--cosmic-glow);
+            opacity: 0.3;
+            pointer-events: none; /* 不擋住點擊 */
+        }
+
+        /* 利用偽元素製作發光圓環 - 內圈 (能量場) */
+        .display-area::after {
+            content: '';
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 65%; height: 65%; /* 內圈大小 */
+            border-radius: 50%;
+            /* 能量場漸層 */
+            background: radial-gradient(circle, rgba(0, 247, 255, 0.15) 0%, transparent 70%);
+            border: 3px solid var(--cosmic-blue);
+            /* 強烈的發光效果 */
+            box-shadow: 
+                0 0 30px var(--cosmic-glow),
+                inset 0 0 30px var(--cosmic-glow);
+            pointer-events: none;
         }
 
         .display-img {
-            max-width: 90%;
-            max-height: 80%;
+            max-width: 80%; /* 稍微縮小以放入圓環 */
+            max-height: 70%;
             object-fit: contain;
-            filter: drop-shadow(0 0 10px rgba(0,0,0,0.8));
             display: none;
-            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 10; /* 確保在圓環之上 */
+            /* 改為藍色發光投影 */
+            filter: drop-shadow(0 0 15px var(--cosmic-glow));
+            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
         @keyframes popIn {
@@ -121,24 +167,38 @@
 
         .display-name {
             font-family: 'Segoe UI', sans-serif;
-            font-size: 1.8rem;
-            color: #0f0;
+            font-size: 2rem;
             font-weight: bold;
-            text-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
-            margin-top: 10px;
-            height: 40px;
+            /* 科技感文字樣式 */
+            color: var(--cosmic-blue);
+            text-shadow: 0 0 10px var(--cosmic-glow);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            
+            position: absolute; /* 懸浮在頂部 */
+            top: 15px;
+            width: 100%;
+            text-align: center;
+            z-index: 10;
         }
 
         .placeholder-text {
-            color: #555;
+            color: var(--cosmic-blue);
             font-size: 1.2rem;
             text-align: center;
+            z-index: 10;
+            opacity: 0.7;
+            text-shadow: 0 0 5px var(--cosmic-glow);
         }
+        /* =========================================
+           ✨ 展示區樣式結束 ✨
+           ========================================= */
+
 
         /* 下半部：列表選單 */
         .list-area {
             width: 100%;
-            height: 55%;
+            height: 50%;
             overflow-y: auto;
             padding-right: 5px;
         }
@@ -151,7 +211,7 @@
         }
 
         .poke-item {
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.05);
             border: 1px solid #444;
             border-radius: 8px;
             padding: 10px;
@@ -162,15 +222,15 @@
         }
 
         .poke-item:active {
-            background: rgba(0, 255, 0, 0.2);
-            border-color: #0f0;
+            background: rgba(0, 247, 255, 0.2); /* 改為藍色 */
+            border-color: var(--cosmic-blue);
             transform: scale(0.98);
         }
 
         .poke-item.active {
-            background: rgba(0, 255, 0, 0.15);
-            border-color: #0f0;
-            box-shadow: 0 0 8px rgba(0, 255, 0, 0.3);
+            background: rgba(0, 247, 255, 0.15); /* 改為藍色 */
+            border-color: var(--cosmic-blue);
+            box-shadow: 0 0 10px var(--cosmic-glow);
         }
 
         .poke-icon {
@@ -192,10 +252,11 @@
         /* Loading */
         #loadingOverlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.95); z-index: 20; color: #0f0;
+            background: rgba(0,0,0,0.95); z-index: 20; color: var(--cosmic-blue); /* 改為藍色 */
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             font-family: monospace; text-align: center;
             transition: opacity 0.5s ease;
+            text-shadow: 0 0 5px var(--cosmic-glow);
         }
     </style>
 </head>
@@ -214,16 +275,16 @@
     <div class="screen-container">
         <div class="screen">
             <div id="loadingOverlay">
-                <i class="fas fa-compact-disc fa-spin fa-3x" style="margin-bottom:20px"></i>
-                <div id="loadingText">讀取資料庫...</div>
+                <i class="fas fa-atom fa-spin fa-3x" style="margin-bottom:20px"></i>
+                <div id="loadingText">初始化系統...</div>
             </div>
 
             <div class="display-area">
                 <div class="placeholder-text" id="placeholder">
-                    <i class="fas fa-hand-pointer fa-2x"></i><br><br>請點選下方列表
+                    <i class="fas fa-hand-pointer fa-2x"></i><br><br>SELECT POKÉMON
                 </div>
-                <img id="mainImg" class="display-img" src="">
                 <div id="mainName" class="display-name"></div>
+                <img id="mainImg" class="display-img" src="">
             </div>
 
             <div class="list-area">
@@ -277,13 +338,14 @@
 
             // 🔥 自動完成：延遲 0.5 秒後淡出遮罩
             setTimeout(() => {
-                ui.text.innerHTML = `已讀取 ${names.length} 隻寶可夢`;
+                ui.text.innerHTML = `SYSTEM READY<br>Loaded ${names.length} units`;
                 ui.overlay.style.opacity = '0';
                 setTimeout(() => { ui.overlay.style.display = 'none'; }, 500);
             }, 500);
 
         } catch (err) {
-            ui.text.innerText = "錯誤: " + err.message;
+            ui.text.innerText = "ERROR: " + err.message;
+            ui.text.style.color = "red";
         }
     });
 
@@ -327,7 +389,7 @@
         ui.img.onload = () => { ui.img.style.display = 'block'; };
         ui.img.onerror = () => { ui.placeholder.style.display = 'block'; ui.placeholder.innerHTML = "無圖片"; };
         
-        // 顯示名字
+        // 顯示名字 (現在在上方)
         ui.name.innerText = item.name;
 
         // 停止前一個聲音
@@ -354,7 +416,6 @@
             console.error("播放失敗:", err);
         }
     }
-
 </script>
 </body>
 </html>
