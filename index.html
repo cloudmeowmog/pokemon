@@ -268,4 +268,478 @@
             background: white;
             border-radius: 10px;
             padding: 10px;
-            text-align
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: transform 0.2s;
+            border: 2px solid transparent;
+        }
+
+        .gallery-item img {
+            width: 80px;
+            height: 80px;
+            object-fit: contain;
+        }
+        .gallery-item-name {
+            font-size: 0.9rem;
+            margin-top: 5px;
+            color: #333;
+            font-weight: bold;
+        }
+        .gallery-play-icon {
+            color: var(--ui-blue);
+            margin-top: 5px;
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+<body>
+
+<div class="pokedex-container">
+    <div class="top-bar">
+        <div class="camera-lens"></div>
+        <div class="indicators">
+            <div class="led red"></div>
+            <div class="led yellow"></div>
+            <div class="led green"></div>
+        </div>
+    </div>
+
+    <div class="screen-container">
+        <div class="screen">
+            <h2>寶可夢辨識系統</h2>
+            <canvas id="visualizer"></canvas>
+            
+            <div class="status-text" id="statusMsg">初始化中...</div>
+
+            <div class="pokemon-display" id="imgContainer">
+                <i class="fas fa-question placeholder-icon" id="placeholderIcon"></i>
+                <img id="pokemonImg" src="" alt="Pokemon">
+            </div>
+
+            <div class="result-box" id="resultArea" style="visibility: hidden;">
+                <div>分析結果:</div>
+                <div class="result-name" id="matchName">---</div>
+                <div class="result-score" id="matchScore">相似度: 0%</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="control-panel">
+        <button class="btn btn-gallery" onclick="openGallery()">
+            <i class="fas fa-book-open fa-lg"></i><br>瀏覽圖鑑
+        </button>
+        <button class="btn btn-record" id="btnRecord" disabled onclick="startRecording()">
+            <i class="fas fa-microphone fa-lg"></i><br>錄音
+        </button>
+        <button class="btn btn-stop" id="btnStop" disabled onclick="stopRecording()">
+            <i class="fas fa-stop fa-lg"></i><br>辨識
+        </button>
+    </div>
+</div>
+
+<div class="modal-overlay" id="galleryModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <span><i class="fas fa-list"></i> 已載入名單</span>
+            <button class="close-btn" onclick="closeGallery()"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="gallery-grid" id="galleryGrid"></div>
+    </div>
+</div>
+
+<script>
+    // ==========================================
+    // ⚙️ 設定區
+    // ==========================================
+    const AUDIO_EXT = '.opus'; 
+    const IMAGE_EXT = '.png';
+    const LIST_FILENAME = 'list.txt'; 
+    
+    // 演算法參數
+    const NOISE_THRESHOLD = 0.05; // 靜音門檻 (0.0 ~ 1.0)，數值越大過濾越多背景音
+    const HPF_FREQ = 150; // 高通濾波器頻率 (Hz)，過濾掉風聲或低頻噪音
+
+    // ==========================================
+    // 🚀 核心邏輯
+    // ==========================================
+
+    let currentPokemonList = []; 
+    let audioContext; 
+    let database = []; 
+    let mediaRecorder;
+    let audioChunks = [];
+    let analyser;
+    let dataArray;
+    let animationId;
+    
+    // UI 
+    const statusMsg = document.getElementById('statusMsg');
+    const btnRecord = document.getElementById('btnRecord');
+    const btnStop = document.getElementById('btnStop');
+    const resultArea = document.getElementById('resultArea');
+    const matchName = document.getElementById('matchName');
+    const matchScore = document.getElementById('matchScore');
+    const pokemonImg = document.getElementById('pokemonImg');
+    const placeholderIcon = document.getElementById('placeholderIcon');
+    const canvas = document.getElementById('visualizer');
+    const canvasCtx = canvas.getContext('2d');
+    const galleryGrid = document.getElementById('galleryGrid');
+    const galleryModal = document.getElementById('galleryModal');
+
+    window.addEventListener('DOMContentLoaded', initAndLoadData);
+
+    // --- 1. 資料讀取 ---
+    async function fetchListFromTextFile() {
+        try {
+            const timestamp = new Date().getTime();
+            const response = await fetch(`${LIST_FILENAME}?t=${timestamp}`);
+            if (!response.ok) throw new Error(`找不到 ${LIST_FILENAME}`);
+            const text = await response.text();
+            const list = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            if (list.length === 0) throw new Error("list.txt 為空");
+            return list;
+        } catch (err) {
+            console.error(err);
+            statusMsg.innerText = `❌ 錯誤: ${err.message}`;
+            return [];
+        }
+    }
+
+    async function initAndLoadData() {
+        if (!audioContext) {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        statusMsg.innerText = "讀取資料庫中...";
+        const fetchedList = await fetchListFromTextFile();
+        if (fetchedList.length === 0) return;
+
+        currentPokemonList = fetchedList;
+        statusMsg.innerText = `發現 ${currentPokemonList.length} 隻寶可夢，載入中...`;
+
+        database = [];
+        let successCount = 0;
+        
+        const promises = currentPokemonList.map(async (name) => {
+            try {
+                const response = await fetch(`wav/${name}${AUDIO_EXT}`); 
+                if (!response.ok) throw new Error();
+                const arrayBuffer = await response.arrayBuffer();
+                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                
+                // 🔥 關鍵改變：資料庫載入時，也進行同樣的降噪處理，確保比對基準一致
+                const processedBuffer = processAudioBuffer(audioBuffer);
+                const feature = extractFeature(processedBuffer);
+                
+                database.push({ name: name, feature: feature });
+                successCount++;
+            } catch (err) {
+                console.error(`失敗: ${name}`, err);
+            }
+        });
+
+        await Promise.all(promises);
+
+        if (successCount === 0) {
+            statusMsg.innerText = "❌ 載入失敗，請檢查 wav 檔案";
+        } else {
+            statusMsg.innerText = `✅ 系統就緒 (載入 ${successCount} 隻)`;
+            btnRecord.disabled = false;
+        }
+    }
+
+    // ==========================================
+    // 🛠️ 訊號處理強化 (核心改進區)
+    // ==========================================
+
+    /**
+     * 對 AudioBuffer 進行前處理：高通濾波 -> 裁切靜音 -> 正規化
+     */
+    function processAudioBuffer(buffer) {
+        const rawData = buffer.getChannelData(0);
+        const sampleRate = buffer.sampleRate;
+
+        // 1. 高通濾波 (High-Pass Filter) - 簡單的 IIR 實作
+        // 移除 RC < 150Hz 的低頻噪音
+        const cutoff = HPF_FREQ; 
+        const rc = 1.0 / (cutoff * 2 * Math.PI);
+        const dt = 1.0 / sampleRate;
+        const alpha = rc / (rc + dt);
+        
+        let filteredData = new Float32Array(rawData.length);
+        filteredData[0] = rawData[0];
+        for (let i = 1; i < rawData.length; i++) {
+            filteredData[i] = alpha * (filteredData[i-1] + rawData[i] - rawData[i-1]);
+        }
+
+        // 2. 尋找聲音起點與終點 (Trim Silence)
+        let startIndex = 0;
+        let endIndex = filteredData.length - 1;
+        
+        // 從頭找起點
+        for (let i = 0; i < filteredData.length; i++) {
+            if (Math.abs(filteredData[i]) > NOISE_THRESHOLD) {
+                startIndex = i;
+                break;
+            }
+        }
+        
+        // 從尾找終點
+        for (let i = filteredData.length - 1; i > startIndex; i--) {
+            if (Math.abs(filteredData[i]) > NOISE_THRESHOLD) {
+                endIndex = i;
+                break;
+            }
+        }
+
+        // 如果截取長度太短(小於0.1秒)，可能只是雜訊，直接回傳原檔(或空)
+        if ((endIndex - startIndex) < sampleRate * 0.1) {
+            return buffer; // 無法有效裁切，放棄
+        }
+
+        const trimmedLength = endIndex - startIndex + 1;
+        const trimmedData = filteredData.slice(startIndex, endIndex + 1);
+
+        // 3. 正規化 (Normalization) - 將最大音量拉到 1.0
+        let maxVal = 0;
+        for (let i = 0; i < trimmedData.length; i++) {
+            if (Math.abs(trimmedData[i]) > maxVal) maxVal = Math.abs(trimmedData[i]);
+        }
+        if (maxVal > 0) {
+            for (let i = 0; i < trimmedData.length; i++) {
+                trimmedData[i] /= maxVal;
+            }
+        }
+
+        // 重組回 AudioBuffer (因為特徵提取需要 buffer 物件)
+        const newBuffer = audioContext.createBuffer(1, trimmedLength, sampleRate);
+        newBuffer.copyToChannel(trimmedData, 0);
+        
+        return newBuffer;
+    }
+
+    // --- 特徵提取 (維持不變，但輸入的資料變乾淨了) ---
+    function extractFeature(audioBuffer) {
+        // 使用原始數據計算，不再依賴 OfflineContext，因為我們已經手動濾波了
+        return calculateBandEnergy(audioBuffer);
+    }
+
+    function calculateBandEnergy(audioBuffer) {
+        const rawData = audioBuffer.getChannelData(0);
+        const samples = rawData.length;
+        const segments = 32; // 將聲音切成 32 等份
+        const segmentSize = Math.floor(samples / segments);
+        let featureVector = [];
+
+        for (let i = 0; i < segments; i++) {
+            let start = i * segmentSize;
+            let end = start + segmentSize;
+            let sumSq = 0;
+            let zeroCrossings = 0;
+            
+            for (let j = start; j < end; j++) {
+                sumSq += rawData[j] * rawData[j];
+                // 過零率
+                if (j > start && rawData[j] >= 0 && rawData[j-1] < 0) {
+                    zeroCrossings++;
+                }
+            }
+            
+            let rms = Math.sqrt(sumSq / segmentSize);
+            let zcr = zeroCrossings / segmentSize;
+            
+            featureVector.push(rms); 
+            featureVector.push(zcr * 5); 
+        }
+        return featureVector;
+    }
+
+    // ==========================================
+    // 🎤 錄音與應用
+    // ==========================================
+
+    async function startRecording() {
+        resultArea.style.visibility = 'hidden';
+        pokemonImg.style.display = 'none';
+        placeholderIcon.style.display = 'block';
+        
+        if (audioContext && audioContext.state === 'suspended') {
+            await audioContext.resume();
+        }
+
+        try {
+            // 請求麥克風時加入一些降噪參數
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                audio: { 
+                    echoCancellation: true, 
+                    noiseSuppression: true,
+                    autoGainControl: true 
+                } 
+            });
+            
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+
+            const source = audioContext.createMediaStreamSource(stream);
+            analyser = audioContext.createAnalyser();
+            analyser.fftSize = 256;
+            source.connect(analyser);
+            dataArray = new Uint8Array(analyser.frequencyBinCount);
+            drawVisualizer();
+
+            mediaRecorder.ondataavailable = event => {
+                audioChunks.push(event.data);
+            };
+
+            mediaRecorder.onstop = async () => {
+                cancelAnimationFrame(animationId);
+                stream.getTracks().forEach(track => track.stop());
+                
+                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                const arrayBuffer = await audioBlob.arrayBuffer();
+                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                
+                // 🔥 應用相同的處理流程
+                const processedRecording = processAudioBuffer(audioBuffer);
+                analyzeRecording(processedRecording);
+            };
+
+            mediaRecorder.start();
+            statusMsg.innerText = "🎤 聆聽中...";
+            btnRecord.disabled = true;
+            btnStop.disabled = false;
+
+        } catch (err) {
+            alert("麥克風錯誤: " + err);
+        }
+    }
+
+    function stopRecording() {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+            btnRecord.disabled = false;
+            btnStop.disabled = true;
+            statusMsg.innerText = "🔍 分析中...";
+        }
+    }
+
+    function analyzeRecording(processedBuffer) {
+        if (database.length === 0) return;
+
+        const recordedFeature = extractFeature(processedBuffer);
+        
+        let bestMatch = null;
+        let highestScore = -1;
+
+        for (let item of database) {
+            const score = cosineSimilarity(recordedFeature, item.feature);
+            if (score > highestScore) {
+                highestScore = score;
+                bestMatch = item.name;
+            }
+        }
+
+        resultArea.style.visibility = 'visible';
+        
+        const THRESHOLD_HIGH = 0.82; // 稍微降低標準，因為前處理已經過濾了很多雜訊
+        const THRESHOLD_LOW = 0.65;
+
+        if (highestScore > THRESHOLD_LOW) {
+            matchName.innerText = bestMatch;
+            matchScore.innerText = `相似度: ${(highestScore * 100).toFixed(1)}%`;
+            showPokemonImage(bestMatch);
+            
+            if (highestScore > THRESHOLD_HIGH) {
+                statusMsg.innerText = `✨ 發現 ${bestMatch}！`;
+                matchName.style.color = "#d32f2f";
+            } else {
+                statusMsg.innerText = `🤔 可能是 ${bestMatch}...`;
+                matchName.style.color = "#d88c00";
+            }
+        } else {
+            matchName.innerText = "無法辨識";
+            matchName.style.color = "#666";
+            matchScore.innerText = `相似度: ${(highestScore * 100).toFixed(1)}%`;
+            statusMsg.innerText = "❓ 請再試一次 (請靠近麥克風)";
+            pokemonImg.style.display = 'none';
+            placeholderIcon.style.display = 'block';
+        }
+    }
+
+    function showPokemonImage(name) {
+        const imgPath = `pic/${name}${IMAGE_EXT}`;
+        pokemonImg.src = imgPath;
+        pokemonImg.onload = () => {
+            placeholderIcon.style.display = 'none';
+            pokemonImg.style.display = 'block';
+        };
+        pokemonImg.onerror = () => {
+            placeholderIcon.style.display = 'block';
+            pokemonImg.style.display = 'none';
+        };
+    }
+
+    function cosineSimilarity(vecA, vecB) {
+        let dotProduct = 0, normA = 0, normB = 0;
+        const len = Math.min(vecA.length, vecB.length);
+        for (let i = 0; i < len; i++) {
+            dotProduct += vecA[i] * vecB[i];
+            normA += vecA[i] * vecA[i];
+            normB += vecB[i] * vecB[i];
+        }
+        if (normA === 0 || normB === 0) return 0;
+        return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+    }
+
+    // --- 圖鑑 ---
+    function openGallery() {
+        galleryGrid.innerHTML = '';
+        currentPokemonList.forEach(name => {
+            const item = document.createElement('div');
+            item.className = 'gallery-item';
+            const imgPath = `pic/${name}${IMAGE_EXT}`;
+            const audioPath = `wav/${name}${AUDIO_EXT}`;
+            
+            item.innerHTML = `
+                <img src="${imgPath}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2NjYyIgZD0iTTEyIDJDMiAyIDIgMTIgMiAxMnMyIDEwIDEwIDEwIDEwLTEwIDEwLTEwUzIyIDIgMTIgMnpNMTAgMTcuNWwtNS01IDEuNS0xLjUgMy41IDMuNSA5LTkgMS41IDEuNUwxMCAxNy41eiIvPjwvc3ZnPg=='">
+                <div class="gallery-item-name">${name}</div>
+                <div class="gallery-play-icon"><i class="fas fa-volume-up"></i> 試聽</div>
+            `;
+            
+            item.onclick = () => {
+                const audio = new Audio(audioPath);
+                audio.play();
+                item.style.borderColor = '#2196F3';
+                setTimeout(() => item.style.borderColor = 'transparent', 500);
+            };
+            
+            galleryGrid.appendChild(item);
+        });
+        galleryModal.style.display = 'flex';
+    }
+
+    function closeGallery() { galleryModal.style.display = 'none'; }
+    galleryModal.onclick = (e) => { if (e.target === galleryModal) closeGallery(); }
+
+    function drawVisualizer() {
+        animationId = requestAnimationFrame(drawVisualizer);
+        analyser.getByteFrequencyData(dataArray);
+        canvasCtx.fillStyle = '#222';
+        canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+        const barWidth = (canvas.width / dataArray.length) * 2.5;
+        let x = 0;
+        for(let i = 0; i < dataArray.length; i++) {
+            let barHeight = dataArray[i] / 2;
+            let r = barHeight + 25 * (i/dataArray.length);
+            let g = 250 * (i/dataArray.length);
+            let b = 50;
+            canvasCtx.fillStyle = `rgb(${r},${g},${b})`;
+            canvasCtx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+            x += barWidth + 1;
+        }
+    }
+</script>
+
+</body>
+</html>
