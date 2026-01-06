@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>寶可夢叫聲辨識器 v4.0</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --pokedex-red: #dc0a2d;
+            --pokedex-dark-red: #8b0000;
+            --screen-bg: #98cb98;
+            --ui-blue: #2196F3;
+            --ui-yellow: #FFC107;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        .pokedex-container {
+            width: 100%;
+            max-width: 480px;
+            background-color: var(--pokedex-red);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            position: relative;
+        }
+
+        /* Top Sensor Bar */
+        .top-bar {
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            border-bottom: 5px solid var(--pokedex-dark-red);
+            box-shadow: 0 4px 5px rgba(0,0,0,0.2);
+            z-index: 10;
+        }
+
+        .camera-lens {
+            width: 50px;
+            height: 50px;
+            background: radial-gradient(circle at 30% 30%, #44d4ff, #005a9e);
+            border-radius: 50%;
+            border: 3px solid white;
+            box-shadow: 0 0 10px rgba(255,255,255,0.5);
+            margin-right: 15px;
+        }
+
+        .indicators {
+            display: flex;
+            gap: 10px;
+        }
+
+        .led {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            border: 1px solid rgba(0,0,0,0.2);
+        }
+        .led.red { background-color: #ff5555; }
+        .led.yellow { background-color: #ffcc00; }
+        .led.green { background-color: #55ff55; }
+
+        /* Main Screen Area */
+        .screen-container {
+            background-color: #dedede;
+            margin: 20px;
+            padding: 20px;
+            border-radius: 15px 15px 0 0;
+            clip-path: polygon(0 0, 100% 0, 100% 90%, 85% 100%, 0 100%);
+            border: 2px solid #555;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .screen {
+            background-color: var(--screen-bg);
+            border: 2px solid #555;
+            border-radius: 10px;
+            padding: 15px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        h2 {
+            margin-top: 0;
+            color: #333;
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            border-bottom: 2px solid #333;
+            width: 100%;
+            text-align: center;
+            padding-bottom: 5px;
+        }
+
+        /* Controls */
+        .control-panel {
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            background-color: var(--pokedex-red);
+        }
+
+        .btn {
+            border: none;
+            padding: 15px;
+            font-size: 1rem;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            border-radius: 8px;
+            box-shadow: 0 4px 0 rgba(0,0,0,0.3);
+            transition: transform 0.1s, box-shadow 0.1s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .btn:active {
+            transform: translateY(4px);
+            box-shadow: none;
+        }
+        
+        .btn-gallery { background-color: #FF9800; }
+        .btn-settings { background-color: #607D8B; } /* 設定按鈕 */
+        .btn-load { background-color: #4CAF50; grid-column: 1 / -1; }
+        .btn-record { background-color: #2196F3; }
+        .btn-stop { background-color: #f44336; }
+        .btn:disabled { background-color: #999; cursor: not-allowed; box-shadow: none; transform: none;}
+
+        /* Visualizer */
+        canvas {
+            width: 100%;
+            height: 60px;
+            background-color: #222;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            flex-shrink: 0;
+        }
+
+        /* Status & Image */
+        .status-text {
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+            font-size: 0.9rem;
+            margin: 5px 0;
+            color: #333;
+            width: 100%;
+            text-align: center;
+            white-space: pre-wrap;
+        }
+
+        .pokemon-display {
+            width: 100%;
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(255,255,255,0.3);
+            border-radius: 10px;
+            margin: 10px 0;
+            border: 1px dashed #666;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .pokemon-display img {
+            max-width: 100%;
+            max-height: 200px;
+            object-fit: contain;
+            display: none;
+        }
+        
+        .placeholder-icon {
+            color: rgba(0,0,0,0.2);
+            font-size: 4rem;
+        }
+
+        .result-box {
+            background-color: rgba(255,255,255,0.9);
+            padding: 10px;
+            border-radius: 5px;
+            width: 100%;
+            text-align: center;
+            border: 2px solid #333;
+            margin-top: auto;
+        }
+        
+        .result-name {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #d32f2f;
+        }
+        
+        .result-score {
+            font-size: 0.8rem;
+            color: #666;
+        }
+
+        /* --- Modal 共用樣式 --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 100;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .modal-content {
+            background: #fff;
+            width: 100%;
+            max-width: 450px;
+            height: 80vh;
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 4px solid var(--pokedex-dark-red);
+        }
+
+        .modal-header {
+            background: var(--pokedex-red);
+            color: white;
+            padding: 15px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        /* 圖鑑 Grid */
+        .gallery-grid {
+            padding: 15px;
+            overflow-y: auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 15px;
+            background: #f0f0f0;
+        }
+
+        .gallery-item {
+            background: white;
+            border-radius: 10px;
+            padding: 10px;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: transform 0.2s;
+            border: 2px solid transparent;
+        }
+
+        .gallery-item img {
+            width: 80px;
+            height: 80px;
+            object-fit: contain;
+        }
+        .gallery-item-name {
+            font-size: 0.9rem;
+            margin-top: 5px;
+            color: #333;
+            font-weight: bold;
+        }
+
+        /* 設定列表樣式 */
+        .settings-body {
+            padding: 15px;
+            overflow-y: auto;
+            background: #f0f0f0;
+            flex-grow: 1;
+        }
+        
+        .add-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .add-group input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+        .add-group button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 0 15px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .settings-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .settings-item {
+            background: white;
+            padding: 12px;
+            margin-bottom: 8px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .settings-item span {
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .btn-delete {
+            background: #ff5555;
+            color: white;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-reset {
+            width: 100%;
+            padding: 12px;
+            margin-top: 20px;
+            background-color: #607D8B;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="pokedex-container">
+    <div class="top-bar">
+        <div class="camera-lens"></div>
+        <div class="indicators">
+            <div class="led red"></div>
+            <div class="led yellow"></div>
+            <div class="led green"></div>
+        </div>
+    </div>
+
+    <div class="screen-container">
+        <div class="screen">
+            <h2>寶可夢辨識系統</h2>
+            <canvas id="visualizer"></canvas>
+            
+            <div class="status-text" id="statusMsg">系統待機中...</div>
+
+            <div class="pokemon-display" id="imgContainer">
+                <i class="fas fa-question placeholder-icon" id="placeholderIcon"></i>
+                <img id="pokemonImg" src="" alt="Pokemon">
+            </div>
+
+            <div class="result-box" id="resultArea" style="visibility: hidden;">
+                <div>分析結果:</div>
+                <div class="result-name" id="matchName">---</div>
+                <div class="result-score" id="matchScore">相似度: 0%</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="control-panel">
+        <button class="btn btn-gallery" onclick="openGallery()">
+            <i class="fas fa-book-open fa-lg"></i><br>圖鑑
+        </button>
+        <button class="btn btn-settings" onclick="openSettings()">
+            <i class="fas fa-cog fa-lg"></i><br>設定
+        </button>
+        <button class="btn btn-load" id="btnLoad" onclick="initAndLoadData()">
+            <i class="fas fa-power-off fa-lg"></i><br>啟動系統 (載入資料)
+        </button>
+        <button class="btn btn-record" id="btnRecord" disabled onclick="startRecording()">
+            <i class="fas fa-microphone fa-lg"></i><br>錄音
+        </button>
+        <button class="btn btn-stop" id="btnStop" disabled onclick="stopRecording()">
+            <i class="fas fa-stop fa-lg"></i><br>辨識
+        </button>
+    </div>
+</div>
+
+<div class="modal-overlay" id="galleryModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <span><i class="fas fa-list"></i> 已登錄寶可夢</span>
+            <button class="close-btn" onclick="closeModal('galleryModal')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="gallery-grid" id="galleryGrid"></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="settingsModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <span><i class="fas fa-edit"></i> 編輯辨識清單</span>
+            <button class="close-btn" onclick="closeModal('settingsModal')"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="settings-body">
+            <div class="add-group">
+                <input type="text" id="newPokemonName" placeholder="輸入名字 (需有對應檔案)">
+                <button onclick="addPokemon()"><i class="fas fa-plus"></i></button>
+            </div>
+            
+            <ul class="settings-list" id="settingsList">
+                </ul>
+
+            <button class="btn-reset" onclick="resetToDefault()">
+                <i class="fas fa-undo"></i> 重置為預設清單
+            </button>
+            <div style="font-size: 0.8rem; color: #666; margin-top: 10px; text-align: center;">
+                注意：新增後請確認 GitHub 的 wav/pic 資料夾中已有對應的 .opus 與 .png 檔案。
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ==========================================
+    // ⚙️ 使用者設定區
+    // ==========================================
+    
+    // 1. 預設清單 (當使用者重置時會回到這裡)
+    const DEFAULT_LIST = [
+        "皮卡丘",
+        "小火龍", 
+        "妙蛙種子",
+        "傑尼龜",
+        "胖丁" 
+    ];
+
+    const AUDIO_EXT = '.opus'; 
+    const IMAGE_EXT = '.png'; 
+    
+    // ==========================================
+    // 🚀 系統核心程式碼
+    // ==========================================
+
+    let currentPokemonList = []; // 實際使用的清單
+    let audioContext;
+    let database = []; 
+    let mediaRecorder;
+    let audioChunks = [];
+    let analyser;
+    let dataArray;
+    let animationId;
+    
+    // UI 元件參考
+    const statusMsg = document.getElementById('statusMsg');
+    const btnLoad = document.getElementById('btnLoad');
+    const btnRecord = document.getElementById('btnRecord');
+    const btnStop = document.getElementById('btnStop');
+    const resultArea = document.getElementById('resultArea');
+    const matchName = document.getElementById('matchName');
+    const matchScore = document.getElementById('matchScore');
+    const pokemonImg = document.getElementById('pokemonImg');
+    const placeholderIcon = document.getElementById('placeholderIcon');
+    const canvas = document.getElementById('visualizer');
+    const canvasCtx = canvas.getContext('2d');
+    
+    const galleryGrid = document.getElementById('galleryGrid');
+    const settingsList = document.getElementById('settingsList');
+    const newPokemonInput = document.getElementById('newPokemonName');
+
+    // --- 0. 讀取與儲存設定 ---
+    function loadSettings() {
+        const stored = localStorage.getItem('myPokemonList');
+        if (stored) {
+            currentPokemonList = JSON.parse(stored);
+        } else {
+            currentPokemonList = [...DEFAULT_LIST];
+        }
+    }
+
+    function saveSettings() {
+        localStorage.setItem('myPokemonList', JSON.stringify(currentPokemonList));
+        renderSettingsList(); // 更新畫面
+        // 提示使用者需要重新載入
+        statusMsg.innerText = "⚠️ 清單已更新，請點擊「啟動系統」重新載入資料";
+        btnLoad.style.display = 'block'; // 顯示載入按鈕
+        btnLoad.disabled = false;
+        btnRecord.disabled = true;
+        btnLoad.innerHTML = '<i class="fas fa-sync"></i><br>清單更新 (點擊重載)';
+    }
+
+    // --- 1. 初始化與資料載入 ---
+    async function initAndLoadData() {
+        loadSettings(); // 確保載入最新設定
+
+        if (!audioContext) {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioContext.state === 'suspended') {
+            await audioContext.resume();
+        }
+
+        btnLoad.disabled = true;
+        btnLoad.innerHTML = '<i class="fas fa-spinner fa-spin"></i><br>載入中...';
+        statusMsg.innerText = "正在下載音檔並建立特徵...";
+        
+        database = [];
+        let successCount = 0;
+        let failCount = 0;
+
+        for (let name of currentPokemonList) {
+            const audioPath = `wav/${name}${AUDIO_EXT}`;
+            try {
+                // 加個 timestamp 避免瀏覽器快取舊的錯誤
+                const response = await fetch(audioPath + '?t=' + new Date().getTime());
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const arrayBuffer = await response.arrayBuffer();
+                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                const feature = extractFeature(audioBuffer);
+                
+                database.push({ name: name, feature: feature });
+                successCount++;
+            } catch (err) {
+                console.error(`載入失敗: ${name}`, err);
+                failCount++;
+            }
+        }
+
+        if (successCount === 0) {
+            statusMsg.innerText = "❌ 載入失敗 (請確認 wav 檔名與設定清單一致)";
+            btnLoad.disabled = false;
+            btnLoad.innerHTML = '<i class="fas fa-redo"></i><br>重試';
+        } else {
+            let msg = `✅ 系統就緒 (${successCount} 隻)`;
+            if(failCount > 0) msg += `\n⚠️ ${failCount} 個檔案找不到`;
+            statusMsg.innerText = msg;
+            btnLoad.style.display = 'none'; 
+            btnRecord.disabled = false;
+        }
+    }
+
+    // --- Modal 控制 ---
+    function closeModal(id) {
+        document.getElementById(id).style.display = 'none';
+    }
+
+    // --- 圖鑑功能 ---
+    function openGallery() {
+        loadSettings();
+        galleryGrid.innerHTML = '';
+        
+        if(currentPokemonList.length === 0) {
+            galleryGrid.innerHTML = '<div style="width:100%;text-align:center;">清單是空的</div>';
+        }
+
+        currentPokemonList.forEach(name => {
+            const item = document.createElement('div');
+            item.className = 'gallery-item';
+            const imgPath = `pic/${name}${IMAGE_EXT}`;
+            const audioPath = `wav/${name}${AUDIO_EXT}`;
+            
+            item.innerHTML = `
+                <img src="${imgPath}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2NjYyIgZD0iTTEyIDJDMiAyIDIgMTIgMiAxMnMyIDEwIDEwIDEwIDEwLTEwIDEwLTEwUzIyIDIgMTIgMnpNMTAgMTcuNWwtNS01IDEuNS0xLjUgMy41IDMuNSA5LTkgMS41IDEuNUwxMCAxNy41eiIvPjwvc3ZnPg=='">
+                <div class="gallery-item-name">${name}</div>
+                <div class="gallery-play-icon"><i class="fas fa-volume-up"></i> 試聽</div>
+            `;
+            
+            item.onclick = () => {
+                const audio = new Audio(audioPath);
+                audio.play().catch(e => alert("播放失敗 (請確認檔案是否存在): " + e));
+                item.style.borderColor = '#2196F3';
+                setTimeout(() => item.style.borderColor = 'transparent', 500);
+            };
+            
+            galleryGrid.appendChild(item);
+        });
+        
+        document.getElementById('galleryModal').style.display = 'flex';
+    }
+
+    // --- 設定/編輯功能 ---
+    function openSettings() {
+        loadSettings();
+        renderSettingsList();
+        document.getElementById('settingsModal').style.display = 'flex';
+    }
+
+    function renderSettingsList() {
+        settingsList.innerHTML = '';
+        currentPokemonList.forEach((name, index) => {
+            const li = document.createElement('li');
+            li.className = 'settings-item';
+            li.innerHTML = `
+                <span>${name}</span>
+                <button class="btn-delete" onclick="removePokemon(${index})"><i class="fas fa-trash"></i></button>
+            `;
+            settingsList.appendChild(li);
+        });
+    }
+
+    function addPokemon() {
+        const name = newPokemonInput.value.trim();
+        if (!name) return;
+        if (currentPokemonList.includes(name)) {
+            alert("名字已存在！");
+            return;
+        }
+        currentPokemonList.push(name);
+        newPokemonInput.value = '';
+        saveSettings();
+    }
+
+    function removePokemon(index) {
+        if(confirm(`確定要刪除 ${currentPokemonList[index]} 嗎？`)) {
+            currentPokemonList.splice(index, 1);
+            saveSettings();
+        }
+    }
+
+    function resetToDefault() {
+        if(confirm("確定要重置回預設清單嗎？所有自訂項目將消失。")) {
+            currentPokemonList = [...DEFAULT_LIST];
+            saveSettings();
+        }
+    }
+
+    // --- 核心演算法 (維持不變) ---
+    function extractFeature(audioBuffer) {
+        const offlineCtx = new OfflineAudioContext(1, audioBuffer.length, audioBuffer.sampleRate);
+        const source = offlineCtx.createBufferSource();
+        source.buffer = audioBuffer;
+        return calculateBandEnergy(audioBuffer);
+    }
+
+    function calculateBandEnergy(audioBuffer) {
+        const rawData = audioBuffer.getChannelData(0);
+        const samples = rawData.length;
+        const segments = 32;
+        const segmentSize = Math.floor(samples / segments);
+        let featureVector = [];
+
+        for (let i = 0; i < segments; i++) {
+            let start = i * segmentSize;
+            let end = start + segmentSize;
+            let sumSq = 0;
+            let zeroCrossings = 0;
+            for (let j = start; j < end; j++) {
+                sumSq += rawData[j] * rawData[j];
+                if (j > start && rawData[j] >= 0 && rawData[j-1] < 0) zeroCrossings++;
+            }
+            let rms = Math.sqrt(sumSq / segmentSize);
+            let zcr = zeroCrossings / segmentSize;
+            featureVector.push(rms); 
+            featureVector.push(zcr * 5); 
+        }
+        return featureVector;
+    }
+
+    // --- 2. 錄音功能 (維持不變) ---
+    async function startRecording() {
+        resultArea.style.visibility = 'hidden';
+        pokemonImg.style.display = 'none';
+        placeholderIcon.style.display = 'block';
+        
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+
+            const source = audioContext.createMediaStreamSource(stream);
+            analyser = audioContext.createAnalyser();
+            analyser.fftSize = 256;
+            source.connect(analyser);
+            dataArray = new Uint8Array(analyser.frequencyBinCount);
+            drawVisualizer();
+
+            mediaRecorder.ondataavailable = event => {
+                audioChunks.push(event.data);
+            };
+
+            mediaRecorder.onstop = async () => {
+                cancelAnimationFrame(animationId);
+                stream.getTracks().forEach(track => track.stop());
+                
+                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                const arrayBuffer = await audioBlob.arrayBuffer();
+                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                
+                analyzeRecording(audioBuffer);
+            };
+
+            mediaRecorder.start();
+            statusMsg.innerText = "🎤 聆聽中...";
+            btnRecord.disabled = true;
+            btnStop.disabled = false;
+
+        } catch (err) {
+            alert("無法開啟麥克風: " + err);
+        }
+    }
+
+    function stopRecording() {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+            btnRecord.disabled = false;
+            btnStop.disabled = true;
+            statusMsg.innerText = "🔍 分析中...";
+        }
+    }
+
+    // --- 3. 比對 (維持不變) ---
+    function analyzeRecording(recordedBuffer) {
+        if (database.length === 0) {
+            statusMsg.innerText = "⚠️ 請先啟動系統載入資料";
+            return;
+        }
+
+        const recordedFeature = calculateBandEnergy(recordedBuffer);
+        
+        let bestMatch = null;
+        let highestScore = -1;
+
+        for (let item of database) {
+            const score = cosineSimilarity(recordedFeature, item.feature);
+            if (score > highestScore) {
+                highestScore = score;
+                bestMatch = item.name;
+            }
+        }
+
+        resultArea.style.visibility = 'visible';
+        
+        const THRESHOLD_HIGH = 0.85;
+        const THRESHOLD_LOW = 0.70;
+
+        if (highestScore > THRESHOLD_LOW) {
+            matchName.innerText = bestMatch;
+            matchScore.innerText = `相似度: ${(highestScore * 100).toFixed(1)}%`;
+            showPokemonImage(bestMatch);
+            statusMsg.innerText = highestScore > THRESHOLD_HIGH ? `✨ 發現野生 ${bestMatch}！` : `🤔 可能是 ${bestMatch}...`;
+            matchName.style.color = highestScore > THRESHOLD_HIGH ? "#d32f2f" : "#d88c00";
+        } else {
+            matchName.innerText = "無法辨識";
+            matchName.style.color = "#666";
+            matchScore.innerText = `相似度: ${(highestScore * 100).toFixed(1)}%`;
+            statusMsg.innerText = "❓ 未知聲音";
+            pokemonImg.style.display = 'none';
+            placeholderIcon.style.display = 'block';
+        }
+    }
+
+    function showPokemonImage(name) {
+        const imgPath = `pic/${name}${IMAGE_EXT}`;
+        pokemonImg.src = imgPath;
+        pokemonImg.onload = () => {
+            placeholderIcon.style.display = 'none';
+            pokemonImg.style.display = 'block';
+        };
+        pokemonImg.onerror = () => {
+            placeholderIcon.style.display = 'block';
+            pokemonImg.style.display = 'none';
+        };
+    }
+
+    function cosineSimilarity(vecA, vecB) {
+        let dotProduct = 0, normA = 0, normB = 0;
+        const len = Math.min(vecA.length, vecB.length);
+        for (let i = 0; i < len; i++) {
+            dotProduct += vecA[i] * vecB[i];
+            normA += vecA[i] * vecA[i];
+            normB += vecB[i] * vecB[i];
+        }
+        if (normA === 0 || normB === 0) return 0;
+        return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+    }
+
+    function drawVisualizer() {
+        animationId = requestAnimationFrame(drawVisualizer);
+        analyser.getByteFrequencyData(dataArray);
+        canvasCtx.fillStyle = '#222';
+        canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+        const barWidth = (canvas.width / dataArray.length) * 2.5;
+        let x = 0;
+        for(let i = 0; i < dataArray.length; i++) {
+            let barHeight = dataArray[i] / 2;
+            let r = barHeight + 25 * (i/dataArray.length);
+            let g = 250 * (i/dataArray.length);
+            let b = 50;
+            canvasCtx.fillStyle = `rgb(${r},${g},${b})`;
+            canvasCtx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+            x += barWidth + 1;
+        }
+    }
+</script>
+
+</body>
+</html>
