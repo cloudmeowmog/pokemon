@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>寶可夢語音圖鑑</title>
+    <title>寶可夢科技圖鑑 V7.1</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         :root {
             --pokedex-red: #dc0a2d;
             --pokedex-dark-red: #8b0000;
-            --screen-bg: #232323;
+            --screen-bg: #1a1a1a; /* 更深色的背景來突顯光圈 */
             --ui-green: #4dad5b;
-            --ui-cyan: #30a7d7;
+            --ui-cyan: #30a7d7; /* 科技藍主色調 */
             --text-color: #f0f0f0;
         }
 
@@ -23,7 +23,7 @@
             display: flex;
             justify-content: center;
             height: 100vh;
-            height: 100dvh; /* 手機全螢幕適配 */
+            height: 100dvh;
             overflow: hidden;
         }
 
@@ -67,7 +67,7 @@
         .led.yellow { background-color: #ffcc00; }
         .led.green { background-color: #55ff55; }
 
-        /* --- 主螢幕區域 (包含顯示區與列表區) --- */
+        /* --- 主螢幕區域 --- */
         .screen-container {
             background-color: #dedede;
             margin: 20px;
@@ -78,80 +78,126 @@
             flex-direction: column;
             overflow: hidden;
             position: relative;
-            /* 底部留一點空間給外框 */
             margin-bottom: max(20px, env(safe-area-inset-bottom));
         }
 
-        /* 1. 上半部：大圖顯示區 */
+        /* ========= 1. 上半部：大圖顯示區 (核心修改) ========= */
         .display-area {
-            background-color: var(--screen-bg);
-            height: 45%; /* 佔畫面的 45% */
-            border-bottom: 2px solid #444;
+            background: radial-gradient(circle at center, #2a2a2a 0%, var(--screen-bg) 80%);
+            height: 50%; /* 稍微增加高度佔比 */
+            border-bottom: 3px solid var(--ui-cyan); /* 改成科技藍邊框 */
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start; /* 內容從上方開始排列 */
             position: relative;
-            padding: 10px;
+            padding: 15px;
+            overflow: hidden; /* 防止光圈溢出 */
         }
 
+        /* 新的科技感標題區塊 */
+        .tech-info-box {
+            text-align: center;
+            margin-bottom: 10px;
+            z-index: 5; /* 確保文字在最上層 */
+            text-shadow: 0 0 8px rgba(0,0,0,0.8);
+        }
+
+        .tech-id {
+            font-family: 'Courier New', monospace;
+            font-size: 1.4rem;
+            color: var(--ui-cyan); /* 科技藍數字 */
+            font-weight: bold;
+            letter-spacing: 2px;
+            margin-bottom: 5px;
+        }
+
+        .tech-name {
+            font-size: 2.2rem;
+            font-weight: bold;
+            color: #fff;
+            letter-spacing: 2px;
+            /* 藍色發光文字效果 */
+            text-shadow: 0 0 10px var(--ui-cyan), 0 0 20px var(--ui-cyan);
+        }
+
+        /* 圖片與光圈的容器 */
+        .img-container {
+            position: relative;
+            width: 100%;
+            flex-grow: 1; /* 填滿剩餘空間 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 科技藍色光圈 (背景) */
+        .tech-ring {
+            position: absolute;
+            width: 85%; /* 相對於容器的寬度 */
+            max-width: 280px; /* 限制最大尺寸 */
+            /* 🔥關鍵：強制保持 1:1 正圓形，手機上不會變形 */
+            aspect-ratio: 1 / 1;
+            border-radius: 50%;
+            /* 藍色霓虹效果 */
+            border: 3px solid var(--ui-cyan);
+            box-shadow: 
+                0 0 20px var(--ui-cyan), 
+                inset 0 0 20px var(--ui-cyan);
+            background: radial-gradient(circle, rgba(48, 167, 215, 0.15) 0%, rgba(0,0,0,0) 70%);
+            z-index: 1; /* 在圖片後面 */
+            opacity: 0.8;
+            /* 緩慢旋轉動畫 */
+            animation: spinRing 20s linear infinite;
+        }
+
+        @keyframes spinRing {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* 寶可夢圖片 */
         .pokemon-img {
             max-width: 90%;
-            max-height: 70%;
+            max-height: 90%; /* 調整大小以適應光圈 */
             object-fit: contain;
-            filter: drop-shadow(0 0 10px rgba(255,255,255,0.1));
+            filter: drop-shadow(0 0 15px rgba(48, 167, 215, 0.4)); /* 藍色陰影 */
             transition: transform 0.2s;
-            z-index: 2;
+            z-index: 2; /* 在光圈前面 */
         }
 
         /* 點擊播放時的動畫 */
         .pokemon-img.playing {
-            transform: scale(1.1);
-        }
-
-        .info-box {
-            margin-top: 10px;
-            text-align: center;
-            color: var(--text-color);
-        }
-
-        .info-id {
-            font-size: 0.9rem;
-            color: #888;
-            font-family: 'Courier New', monospace;
-            background: rgba(0,0,0,0.5);
-            padding: 2px 8px;
-            border-radius: 10px;
-            margin-bottom: 5px;
-            display: inline-block;
-        }
-
-        .info-name {
-            font-size: 1.8rem;
-            font-weight: bold;
-            letter-spacing: 2px;
-            color: var(--ui-green);
-            text-shadow: 0 0 5px rgba(77, 173, 91, 0.3);
+            transform: scale(1.05);
+            filter: drop-shadow(0 0 25px var(--ui-cyan));
         }
 
         .placeholder-text {
-            color: #666;
+            color: var(--ui-cyan);
             font-size: 1.2rem;
             animation: pulse 2s infinite;
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
         }
-        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+        @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
 
-        /* 2. 下半部：列表區 */
+        /* ========= 2. 下半部：列表區 ========= */
         .list-area {
             background-color: #111;
             flex-grow: 1;
             overflow-y: auto;
             padding: 10px;
+            /* 加入一點科技感的網格背景 */
+            background-image: 
+                linear-gradient(rgba(48, 167, 215, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(48, 167, 215, 0.05) 1px, transparent 1px);
+            background-size: 20px 20px;
         }
 
         .gallery-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr); /* 兩欄顯示 */
+            grid-template-columns: repeat(2, 1fr);
             gap: 10px;
         }
 
@@ -163,18 +209,31 @@
             display: flex;
             align-items: center;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
         }
 
         .gallery-item:active {
-            background: rgba(255,255,255,0.15);
+            background: rgba(48, 167, 215, 0.1);
             transform: scale(0.98);
         }
 
         /* 被選中的項目樣式 */
         .gallery-item.selected {
-            border-color: var(--ui-green);
-            background: rgba(77, 173, 91, 0.1);
+            border-color: var(--ui-cyan);
+            background: rgba(48, 167, 215, 0.15);
+            box-shadow: 0 0 10px rgba(48, 167, 215, 0.3);
+        }
+        
+        /* 選中時的小光條裝飾 */
+        .gallery-item.selected::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            width: 4px;
+            background: var(--ui-cyan);
+            box-shadow: 0 0 8px var(--ui-cyan);
         }
 
         .gallery-thumb {
@@ -185,7 +244,10 @@
             border-radius: 50%;
             padding: 2px;
             margin-right: 10px;
-            border: 1px solid #555;
+            border: 2px solid #555;
+        }
+        .gallery-item.selected .gallery-thumb {
+            border-color: var(--ui-cyan);
         }
 
         .gallery-info {
@@ -195,24 +257,26 @@
         }
 
         .gallery-name { font-size: 0.95rem; color: #fff; font-weight: bold; }
-        .gallery-id { font-size: 0.75rem; color: #666; }
+        .gallery-id { font-size: 0.75rem; color: var(--ui-cyan); }
 
         /* Loading */
         #loadingOverlay {
             position: absolute; top:0; left:0; width:100%; height:100%;
             background: rgba(0,0,0,0.95); z-index: 50;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            color: var(--ui-green);
+            color: var(--ui-cyan);
             font-family: monospace;
         }
         .start-btn {
             margin-top: 25px; padding: 12px 30px;
-            background: var(--ui-green); color: #000;
+            background: var(--ui-cyan); color: #000;
             border: none; border-radius: 25px;
             font-weight: bold; font-size: 1.1rem;
             cursor: pointer;
-            box-shadow: 0 0 15px rgba(77, 173, 91, 0.5);
+            box-shadow: 0 0 15px rgba(48, 167, 215, 0.5);
+            transition: 0.2s;
         }
+        .start-btn:hover { background: #fff; box-shadow: 0 0 20px #fff; }
 
     </style>
 </head>
@@ -231,21 +295,23 @@
     <div class="screen-container">
         
         <div id="loadingOverlay">
-            <i class="fas fa-compact-disc fa-spin fa-3x"></i>
-            <div id="loadingText" style="margin-top:20px; letter-spacing:1px; text-align:center; line-height:1.5;">讀取資料庫...</div>
+            <i class="fas fa-satellite-dish fa-spin fa-3x"></i>
+            <div id="loadingText" style="margin-top:20px; letter-spacing:1px; text-align:center; line-height:1.5;">啟動科技圖鑑...</div>
             <button id="startBtn" class="start-btn" onclick="startSystem()" style="display:none;">
-                <i class="fas fa-power-off"></i> 啟動圖鑑
+                <i class="fas fa-power-off"></i> 存取資料庫
             </button>
         </div>
 
         <div class="display-area" id="displayArea">
-            <div class="placeholder-text" id="placeholderText">請選擇寶可夢</div>
+            <div class="placeholder-text" id="placeholderText">請選擇目標</div>
             
-            <img id="mainImg" class="pokemon-img" src="" style="display:none;">
-            
-            <div class="info-box" id="infoBox" style="display:none;">
-                <div class="info-id" id="mainId">No.????</div>
-                <div class="info-name" id="mainName">---</div>
+            <div class="tech-info-box" id="techInfoBox" style="display:none;">
+                <div class="tech-id" id="mainIdText">0000</div>
+                <div class="tech-name" id="mainNameText">---</div>
+            </div>
+
+            <div class="img-container" id="imgContainer" style="visibility:hidden;">
+                <div class="tech-ring"></div> <img id="mainImg" class="pokemon-img" src="">
             </div>
         </div>
 
@@ -272,16 +338,20 @@
     let database = []; 
     let isStarted = false;
 
-    // DOM Elements
+    // DOM Elements (更新對應的新 ID)
     const ui = {
         overlay: document.getElementById('loadingOverlay'),
         loadText: document.getElementById('loadingText'),
         startBtn: document.getElementById('startBtn'),
-        mainImg: document.getElementById('mainImg'),
-        mainName: document.getElementById('mainName'),
-        mainId: document.getElementById('mainId'),
-        infoBox: document.getElementById('infoBox'),
         placeholder: document.getElementById('placeholderText'),
+        
+        // 新的顯示元素
+        techInfoBox: document.getElementById('techInfoBox'),
+        mainIdText: document.getElementById('mainIdText'),
+        mainNameText: document.getElementById('mainNameText'),
+        imgContainer: document.getElementById('imgContainer'),
+        mainImg: document.getElementById('mainImg'),
+        
         galleryGrid: document.getElementById('galleryGrid')
     };
 
@@ -303,7 +373,7 @@
 
             renderGallery();
             
-            ui.loadText.innerHTML = `讀取完成<br>共 ${database.length} 隻寶可夢`;
+            ui.loadText.innerHTML = `系統就緒<br>已登錄 ${database.length} 筆資料`;
             document.querySelector('.fa-spin').style.display = 'none';
             ui.startBtn.style.display = 'inline-block';
 
@@ -315,14 +385,12 @@
     // --- 2. 啟動系統: 載入聲音 ---
     async function startSystem() {
         ui.startBtn.style.display = 'none';
-        ui.loadText.innerText = "正在載入聲音檔...";
+        ui.loadText.innerText = "正在同步聲音樣本...";
         document.querySelector('.fa-spin').style.display = 'inline-block';
 
         try {
-            // 初始化 AudioContext
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-            // 批次下載解碼聲音
             let loaded = 0;
             for(let item of database) {
                 try {
@@ -331,17 +399,16 @@
                         const buf = await res.arrayBuffer();
                         item.buffer = await audioCtx.decodeAudioData(buf);
                         loaded++;
-                        ui.loadText.innerText = `載入中 (${loaded}/${database.length})...`;
+                        ui.loadText.innerText = `同步中 (${loaded}/${database.length})...`;
                     }
                 } catch(err) { console.warn(item.name, err); }
             }
             
-            // 載入完畢，進入主畫面
             ui.overlay.style.display = 'none';
             isStarted = true;
 
         } catch(err) {
-            alert("無法啟動音效系統: " + err);
+            alert("系統啟動失敗: " + err);
         }
     }
 
@@ -351,12 +418,12 @@
         database.forEach((item, idx) => {
             const el = document.createElement('div');
             el.className = 'gallery-item';
-            el.id = `item-${idx}`; // 用於標記選中狀態
+            el.id = `item-${idx}`;
             el.innerHTML = `
                 <img src="pic/${item.name}${CONFIG.imgExt}" class="gallery-thumb" loading="lazy" 
-                    onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iIzY2NiIgZD0iTTEyIDJDMiAyIDIgMTIgMiAxMnMyIDEwIDEwIDEwIDEwLTEwIDEwLTEwUzIyIDIgMTIgMnptMCAxOGMtNC40MSAwLTgtMy41OS04LThzMy41OS04IDgtOCA4IDMuNTkgOCA4LTMuNTkgOCA4IDh6Ii8+PC9zdmc+'">
+                    onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iIzQ0NCIgZD0iTTEyIDJDMiAyIDIgMTIgMiAxMnMyIDEwIDEwIDEwIDEwLTEwIDEwLTEwUzIyIDIgMTIgMnptMCAxOGMtNC40MSAwLTgtMy41OS04LThzMy41OS04IDgtOCA4IDMuNTkgOCA4LTMuNTkgOCA4IDh6Ii8+PC9zdmc+'">
                 <div class="gallery-info">
-                    <div class="gallery-id">No.${item.id}</div>
+                    <div class="gallery-id">${item.id}</div>
                     <div class="gallery-name">${item.name}</div>
                 </div>
             `;
@@ -365,17 +432,18 @@
         });
     }
 
-    // --- 4. 互動邏輯 ---
+    // --- 4. 互動邏輯 (更新為新介面) ---
     function selectPokemon(item, idx) {
         if(!isStarted) return;
 
-        // 更新上方顯示區
+        // 隱藏佔位符，顯示內容
         ui.placeholder.style.display = 'none';
-        ui.mainImg.style.display = 'block';
-        ui.infoBox.style.display = 'block';
+        ui.techInfoBox.style.display = 'block';
+        ui.imgContainer.style.visibility = 'visible'; // 使用 visibility 保持版面佔位
 
-        ui.mainName.innerText = item.name;
-        ui.mainId.innerText = `No.${item.id}`;
+        // 更新文字與圖片
+        ui.mainIdText.innerText = item.id;
+        ui.mainNameText.innerText = item.name;
         ui.mainImg.src = `pic/${item.name}${CONFIG.imgExt}`;
 
         // 處理列表選中樣式
@@ -389,7 +457,6 @@
 
     function playSound(item) {
         if(!item.buffer) return;
-        // 停止前一個聲音(如果有的話，這裡做簡單版直接疊加播放，或是可以在全域存一個 source 來 stop)
         const source = audioCtx.createBufferSource();
         source.buffer = item.buffer;
         source.connect(audioCtx.destination);
@@ -397,9 +464,8 @@
     }
 
     function triggerAnimation() {
-        // 簡單的 CSS 動畫重置技巧
         ui.mainImg.classList.remove('playing');
-        void ui.mainImg.offsetWidth; // Trigger reflow
+        void ui.mainImg.offsetWidth; 
         ui.mainImg.classList.add('playing');
     }
 
