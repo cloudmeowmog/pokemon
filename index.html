@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>寶可夢科技圖鑑 V7.2</title>
+    <title>寶可夢科技圖鑑 V8.0</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         :root {
@@ -84,15 +84,16 @@
         /* ========= 1. 上半部：大圖顯示區 ========= */
         .display-area {
             background: radial-gradient(circle at center, #2a2a2a 0%, var(--screen-bg) 80%);
-            /* 修改：高度增加至 55%，讓下方選單下沉，給圖片更多空間 */
+            /* 高度設定，給下方列表留空間 */
             height: 55%; 
             border-bottom: 3px solid var(--ui-cyan);
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: flex-start;
+            /* 讓內容從上到下排列，標題在最上，圖片填滿剩下空間 */
+            justify-content: flex-start; 
             position: relative;
-            padding: 10px 15px; /* 稍微減少上下 padding */
+            padding: 10px;
             overflow: hidden;
         }
 
@@ -101,7 +102,8 @@
             margin-bottom: 5px;
             z-index: 5;
             text-shadow: 0 0 8px rgba(0,0,0,0.8);
-            flex-shrink: 0; /* 防止文字被擠壓 */
+            flex-shrink: 0; /* 防止標題被壓縮 */
+            width: 100%;
         }
 
         .tech-id {
@@ -114,29 +116,29 @@
         }
 
         .tech-name {
-            font-size: 1.8rem; /* 字體稍微調小一點點以防太長 */
+            font-size: 1.8rem;
             font-weight: bold;
             color: #fff;
             letter-spacing: 2px;
             text-shadow: 0 0 10px var(--ui-cyan), 0 0 20px var(--ui-cyan);
         }
 
-        /* 圖片容器 */
+        /* 圖片容器：關鍵修改 */
         .img-container {
             position: relative;
             width: 100%;
-            flex-grow: 1;
+            /* 讓容器填滿標題下方的所有剩餘空間 */
+            flex-grow: 1; 
+            /* 強制內容(圖片與光圈)在容器內垂直水平置中 */
             display: flex;
             justify-content: center;
             align-items: center;
-            /* 確保容器本身不會溢出 */
             overflow: visible; 
         }
 
         /* 科技藍色光圈 */
         .tech-ring {
             position: absolute;
-            /* 修改：調整光圈大小比例 */
             width: 75%; 
             max-width: 260px;
             aspect-ratio: 1 / 1; /* 保持正圓 */
@@ -158,9 +160,8 @@
 
         /* 寶可夢圖片 */
         .pokemon-img {
-            /* 修改：縮小圖片尺寸，避免太滿 */
-            max-width: 85%;
-            max-height: 65%; 
+            max-width: 80%; /* 略微縮小，避免貼邊 */
+            max-height: 70%; 
             object-fit: contain;
             filter: drop-shadow(0 0 15px rgba(48, 167, 215, 0.4));
             transition: transform 0.2s;
@@ -177,8 +178,8 @@
             font-size: 1.2rem;
             animation: pulse 2s infinite;
             position: absolute;
-            top: 50%;
-            transform: translateY(-50%);
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
         }
         @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
 
@@ -186,7 +187,7 @@
         .list-area {
             background-color: #111;
             flex-grow: 1;
-            overflow-y: auto;
+            overflow-y: auto; /* 確保可以滾動 */
             padding: 10px;
             background-image: 
                 linear-gradient(rgba(48, 167, 215, 0.05) 1px, transparent 1px),
@@ -196,8 +197,11 @@
 
         .gallery-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            /* 強制兩欄，符合您的 2*2 需求 */
+            grid-template-columns: repeat(2, 1fr); 
             gap: 10px;
+            /* 增加底部 padding 方便手機滑動 */
+            padding-bottom: 20px; 
         }
 
         .gallery-item {
@@ -252,10 +256,11 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            justify-content: center;
         }
 
-        .gallery-name { font-size: 0.95rem; color: #fff; font-weight: bold; }
-        .gallery-id { font-size: 0.75rem; color: var(--ui-cyan); font-family: 'Courier New', monospace; }
+        .gallery-name { font-size: 0.9rem; color: #fff; font-weight: bold; }
+        .gallery-id { font-size: 0.75rem; color: var(--ui-cyan); font-family: 'Courier New', monospace; margin-bottom: 2px;}
 
         /* Loading */
         #loadingOverlay {
@@ -351,7 +356,7 @@
         galleryGrid: document.getElementById('galleryGrid')
     };
 
-    // --- 1. 初始化: 讀取清單並解析 ID ---
+    // --- 1. 初始化: 讀取並解析字串 ---
     document.addEventListener('DOMContentLoaded', async () => {
         try {
             const res = await fetch('list.txt?t=' + Date.now());
@@ -361,12 +366,21 @@
             const lines = txt.split(/\r?\n/).filter(line => line.trim());
             database = lines.map((line, index) => {
                 const trimmed = line.trim();
-                // 🔥 修改邏輯：直接擷取該行的前 4 個字元作為 ID
-                const extractedId = trimmed.substring(0, 4); 
                 
+                // 🔥 修改邏輯：
+                // 1. 完整檔名 (用於讀取 .png / .opus)
+                const fileName = trimmed;
+                
+                // 2. ID: 前 4 個字元
+                const displayId = trimmed.substring(0, 4); 
+                
+                // 3. Name: 第 5 個字元之後的所有內容
+                const displayName = trimmed.substring(4); 
+
                 return {
-                    id: extractedId, // 顯示在上方小字
-                    name: trimmed,   // 顯示在下方大字 & 用於檔名
+                    file: fileName,      // 真實檔名 (例如 0006噴火龍)
+                    id: displayId,       // 顯示用 ID (例如 0006)
+                    name: displayName,   // 顯示用 名稱 (例如 噴火龍)
                     buffer: null
                 };
             });
@@ -394,14 +408,15 @@
             let loaded = 0;
             for(let item of database) {
                 try {
-                    const res = await fetch(`wav/${item.name}${CONFIG.audioExt}`);
+                    // 使用 item.file (完整檔名) 來讀取檔案
+                    const res = await fetch(`wav/${item.file}${CONFIG.audioExt}`);
                     if(res.ok) {
                         const buf = await res.arrayBuffer();
                         item.buffer = await audioCtx.decodeAudioData(buf);
                         loaded++;
                         ui.loadText.innerText = `同步中 (${loaded}/${database.length})...`;
                     }
-                } catch(err) { console.warn(item.name, err); }
+                } catch(err) { console.warn(item.file, err); }
             }
             
             ui.overlay.style.display = 'none';
@@ -419,8 +434,9 @@
             const el = document.createElement('div');
             el.className = 'gallery-item';
             el.id = `item-${idx}`;
+            // 列表顯示：藍色 ID 在上，白色名稱在下
             el.innerHTML = `
-                <img src="pic/${item.name}${CONFIG.imgExt}" class="gallery-thumb" loading="lazy" 
+                <img src="pic/${item.file}${CONFIG.imgExt}" class="gallery-thumb" loading="lazy" 
                     onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iIzQ0NCIgZD0iTTEyIDJDMiAyIDIgMTIgMiAxMnMyIDEwIDEwIDEwIDEwLTEwIDEwLTEwUzIyIDIgMTIgMnptMCAxOGMtNC40MSAwLTgtMy41OS04LThzMy41OS04IDgtOCA4IDMuNTkgOCA4LTMuNTkgOCA4IDh6Ii8+PC9zdmc+'">
                 <div class="gallery-info">
                     <div class="gallery-id">${item.id}</div>
@@ -440,12 +456,12 @@
         ui.techInfoBox.style.display = 'block';
         ui.imgContainer.style.visibility = 'visible';
 
-        // 更新 ID (上方小字)
+        // 上方大字：藍色 ID
         ui.mainIdText.innerText = item.id;
-        // 更新 名稱 (下方大字)
+        // 下方大字：白色 名稱 (不含數字)
         ui.mainNameText.innerText = item.name;
-        // 更新 圖片
-        ui.mainImg.src = `pic/${item.name}${CONFIG.imgExt}`;
+        // 圖片：完整檔名
+        ui.mainImg.src = `pic/${item.file}${CONFIG.imgExt}`;
 
         document.querySelectorAll('.gallery-item').forEach(el => el.classList.remove('selected'));
         document.getElementById(`item-${idx}`).classList.add('selected');
